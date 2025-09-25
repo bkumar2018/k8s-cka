@@ -1,0 +1,87 @@
+
+Logs - Docker
+
+docker logs -f ecf
+
+Logs - k8s
+
+kubectl logs -f pod-name
+
+If there are multiple containers within the pod then how we see logs?
+-
+E.g
+
+................
+apiVersion: v1
+kind: Pod
+metadata:
+name: event-simulator-pod
+spec:
+containers:
+- name: event-simulator-pod
+  image: kodekloud/event-simulator
+- name: image-processor
+  image: some-image-processor
+
+..........
+
+Here we have two conatiners [event-simulator-pod and some-image-processor ]
+now if you hit command to check logs using pod name ?
+
+kubectl logs -f event-simulator-pod   --> which container logs will show up ?
+
+kubectl logs -f event-simulator-pod event-simulator-pod
+
+kubectl logs -f event-simulator-pod image-processor
+
+.........
+
+ontrolplane ~ ➜  kubectl get pods
+NAME       READY   STATUS    RESTARTS   AGE
+webapp-1   1/1     Running   0          2m49s
+
+
+controlplane ~ ➜  kubectl logs webapp-1 
+[2025-09-15 07:07:27,544] INFO in event-simulator: USER1 is viewing page2
+[2025-09-15 07:07:28,545] INFO in event-simulator: USER4 is viewing page1
+[2025-09-15 07:07:29,546] INFO in event-simulator: USER4 is viewing page1
+[2025-09-15 07:07:30,547] INFO in event-simulator: USER2 is viewing page3
+[2025-09-15 07:07:31,549] INFO in event-simulator: USER3 logged out
+[2025-09-15 07:07:32,550] WARNING in event-simulator: USER5 Failed to Login as the account is locked due to MANY FAILED ATTEMPTS.
+[2025-09-15 07:07:32,550] INFO in event-simulator: USER1 is viewing page2
+[2025-09-15 07:07:33,551] INFO in event-simulator: USER4 is viewing page2
+[2025-09-15 07:07:34,553] INFO in event-simulator: USER2 logged in
+[2025-09-15 07:07:35,554] WARNING in event-simulator: USER7 Order failed as the item is OUT OF STOCK.
+[2025-09-15 07:07:35,554] INFO in event-simulator: USER3 is viewing page1
+[2025-09-15 07:07:36,555] INFO in event-simulator: USER4 is viewing page3
+
+
+
+ontrolplane ~ ➜  kubectl get pods
+NAME       READY   STATUS    RESTARTS   AGE
+webapp-1   1/1     Running   0          2m49s
+webapp-2   2/2     Running   0          16s
+
+
+webapp-2 has two container 2/2 running , hence to see logs of each container mention there names as below:
+
+controlplane ~ ➜  kubectl logs webapp-2 simple-webapp 
+
+controlplane ~ ➜  kubectl logs webapp-2 db 
+
+
+
+
+Defaulted container "simple-webapp" out of: simple-webapp, db
+[2025-09-15 07:09:59,958] INFO in event-simulator: USER4 is viewing page3
+[2025-09-15 07:10:00,959] INFO in event-simulator: USER1 is viewing page3
+[2025-09-15 07:10:01,960] INFO in event-simulator: USER3 logged in
+[2025-09-15 07:10:02,962] INFO in event-simulator: USER1 logged out
+[2025-09-15 07:10:03,962] INFO in event-simulator: USER2 is viewing page1
+[2025-09-15 07:10:04,963] WARNING in event-simulator: USER5 Failed to Login as the account is locked due to MANY FAILED ATTEMPTS.
+[2025-09-15 07:10:04,964] INFO in event-simulator: USER1 logged in
+[2025-09-15 07:10:05,964] INFO in event-simulator: USER1 is viewing page1
+[2025-09-15 07:10:06,966] INFO in event-simulator: USER1 logged out
+[2025-09-15 07:10:07,967] WARNING in event-simulator: USER30 Order failed as the item is OUT OF STOCK.
+
+

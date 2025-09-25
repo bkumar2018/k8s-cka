@@ -1,0 +1,122 @@
+
+CA certifica Authority 
+    sign certificate
+
+master node is also ca server 
+
+k8s has built in ca certificates api 
+
+openssl genrsa -out 
+
+
+kubectl get csr 
+
+kubectl certitifcate approve csr 
+
+All certificates management is done by controller-manager service on control plane 
+
+cat /etc/kubernetes/manifests/kube-controller-manager.yaml
+
+////////
+
+Q:
+A new member akshay joined our team. He requires access to our cluster. The Certificate Signing Request is at the /root location.
+
+Inspect it
+A:
+controlplane ~ ➜  ls
+akshay.csr  akshay.key
+
+Q:
+Create a CertificateSigningRequest object with the name akshay with the contents of the akshay.csr file
+
+As of kubernetes 1.19, the API to use for CSR is certificates.k8s.io/v1.
+
+Please note that an additional field called signerName should also be added when creating CSR. For client authentication to the API server we will use the built-in signer kubernetes.io/kube-apiserver-client.
+
+
+
+
+controlplane ~ ➜  cat akshay.csr | base64 
+<base64 encoded output>
+
+///////////////////
+
+akshay-csr.yaml 
+
+
+---
+apiVersion: certificates.k8s.io/v1
+kind: CertificateSigningRequest
+metadata:
+  name: akshay
+spec:
+  groups:
+  - system:authenticated
+  request: <Paste the base64 encoded value of the CSR file>
+  signerName: kubernetes.io/kube-apiserver-client
+  usages:
+  - client auth
+
+
+k apply -f akshay-csr.yaml 
+
+controlplane ~ ➜  k get csr
+NAME        AGE   SIGNERNAME                                    REQUESTOR                  REQUESTEDDURATION   CONDITION
+akshay      68s   kubernetes.io/kube-apiserver-client           kubernetes-admin           <none>              Pending
+csr-259rh   27m   kubernetes.io/kube-apiserver-client-kubelet   system:node:controlplane   <none>              Approved,Issued
+
+
+controlplane ~ ➜  k certificate approve akshay
+certificatesigningrequest.certificates.k8s.io/akshay approved
+
+
+controlplane ~ ➜  k get csr
+NAME        AGE     SIGNERNAME                                    REQUESTOR                  REQUESTEDDURATION   CONDITION
+akshay      2m25s   kubernetes.io/kube-apiserver-client           kubernetes-admin           <none>              Approved,Issued
+csr-259rh   28m     kubernetes.io/kube-apiserver-client-kubelet   system:node:controlplane   <none>              Approved,Issued
+
+
+controlplane ~ ➜  k describe csr agent-smith
+Name:               agent-smith
+Labels:             <none>
+Annotations:        <none>
+CreationTimestamp:  Mon, 22 Sep 2025 01:59:21 +0000
+Requesting User:    agent-x
+Signer:             kubernetes.io/kube-apiserver-client
+Status:             Pending
+Subject:
+         Common Name:    new-user
+         Serial Number:  
+Events:  <none>
+
+
+
+controlplane ~ ➜  k describe csr agent-smith
+Name:               agent-smith
+Labels:             <none>
+Annotations:        <none>
+CreationTimestamp:  Mon, 22 Sep 2025 01:59:21 +0000
+Requesting User:    agent-x
+Signer:             kubernetes.io/kube-apiserver-client
+Status:             Pending
+Subject:
+         Common Name:    new-user
+         Serial Number:  
+Events:  <none>
+
+
+
+
+  groups:
+  - system:masters
+  - system:authenticated
+
+
+  controlplane ~ ➜  kubectl certificate deny agent-smith
+certificatesigningrequest.certificates.k8s.io/agent-smith denied
+
+
+controlplane ~ ➜  k delete csr agent-smith
+certificatesigningrequest.certificates.k8s.io "agent-smith" deleted
+

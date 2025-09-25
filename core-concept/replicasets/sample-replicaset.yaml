@@ -1,0 +1,265 @@
+
+Replication controller:
+  ReplicaSets
+
+  - for High availability
+  - for Load balancing and scaling
+
+
+///
+apiVersion:
+kind:
+metadata:
+
+spec:
+/////
+
+
+
+/////
+
+apiVersion: v1
+kind: ReplicationController
+metadata:
+    name: myapp-rc
+    labels:
+        app: myapp
+        type: front-end
+
+spec:
+    template:  ---> from Pod 
+
+        metadata:
+        name: nginx
+        labels:
+            app: nginx
+            tier: frontend
+
+        spec:
+        containers:
+        - name: nginx
+            image: nginx        
+    
+    replicas: 3
+
+
+/////
+
+Two different replica:
+
+kind: ReplicationController
+kind: ReplicaSet
+
+////
+
+apiVersion: v1
+kind: ReplicaSet
+metadata:
+    name: myapp-rc
+    labels:
+        app: myapp
+        type: front-end
+
+spec:
+    template:  ---> from Pod 
+
+        metadata:
+        name: nginx
+        labels:
+            app: nginx
+            tier: frontend
+
+        spec:
+        containers:
+        - name: nginx
+            image: nginx        
+    
+    replicas: 3
+    selector:
+        matchLabels:
+            type: front-end
+
+////
+kubectl cerate -f nameof.yaml
+kubectl get replicaset
+kubectl get pods
+
+/////
+
+
+Labels and Selectors:
+.....................
+
+
+use case :
+    ReplicaSet mointer the pods and if failes replicate it
+
+    There are 100 of pods in nodes, which pod to replicate, hence need Labels and selectors.
+
+
+/////
+
+kubectl create -f replicaset.yaml
+kubectl get replicaset
+kubectl delete replicaset myapp-replicaset
+kubectl 
+kubectl scale --replicas=6 -f <replica.yaml>
+
+////
+
+controlplane ~ ➜  kubectl get replicaset
+NAME              DESIRED   CURRENT   READY   AGE
+new-replica-set   4         4         0       5s
+ 
+
+controlplane ~ ➜  kubectl get rs
+NAME              DESIRED   CURRENT   READY   AGE
+new-replica-set   4         4         0       77s
+
+
+Q: How many replicaset are in above output:
+Ans: 1  with name 'new-replica-set '
+
+
+Q: kubectl create -f replicaset-definition-1.yaml 
+remember 
+apiVersion: apps/v1 --> for ReplicaSets kind 
+
+
+Q:
+ontrolplane ~ ➜  kubectl get rs
+NAME              DESIRED   CURRENT   READY   AGE
+new-replica-set   4         4         0       10m
+replicaset-1      2         2         2       3m3s
+replicaset-2      2         2         2       48s
+
+controlplane ~ ➜  
+
+controlplane ~ ➜  kubectl delete replicaset replicaset-1
+replicaset.apps "replicaset-1" deleted
+
+controlplane ~ ➜  kubectl delete replicaset replicaset-2
+replicaset.apps "replicaset-2" deleted
+
+controlplane ~ ➜  
+
+controlplane ~ ➜  kubectl get rs
+NAME              DESIRED   CURRENT   READY   AGE
+new-replica-set   4         4         0       11m
+
+
+sample:
+
+///////////
+controlplane ~ ➜  cat new-replica-set.yaml 
+///////////
+
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  creationTimestamp: "2025-09-07T12:12:07Z"
+  generation: 1
+  name: new-replica-set
+  namespace: default
+  resourceVersion: "1210"
+  uid: 5bd3be5a-7ae8-48dc-9768-8e2cb3cb0463
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      name: busybox-pod
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        name: busybox-pod
+    spec:
+      containers:
+      - command:
+        - sh
+        - -c
+        - echo Hello Kubernetes! && sleep 3600
+        image: busybox
+        imagePullPolicy: Always
+        name: busybox-container
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+status:
+  fullyLabeledReplicas: 4
+  observedGeneration: 1
+  replicas: 4
+///////////
+
+Scale ReplicaSet to 5 Pods:
+
+
+controlplane ~ ➜  kubectl get pods
+NAME                    READY   STATUS    RESTARTS   AGE
+new-replica-set-jvmv4   1/1     Running   0          97s
+new-replica-set-rr44k   1/1     Running   0          97s
+new-replica-set-v48j5   1/1     Running   0          97s
+new-replica-set-v7twb   1/1     Running   0          97s
+
+controlplane ~ ➜  kubectl get rs
+NAME              DESIRED   CURRENT   READY   AGE
+new-replica-set   4         4         4       100s
+
+controlplane ~ ➜  kubectl scale --replicas=5 replicaset new-replica-set
+replicaset.apps/new-replica-set scaled
+
+controlplane ~ ➜  
+
+controlplane ~ ➜  kubectl get pods
+NAME                    READY   STATUS    RESTARTS   AGE
+new-replica-set-jvmv4   1/1     Running   0          2m29s
+new-replica-set-k54jx   1/1     Running   0          6s
+new-replica-set-rr44k   1/1     Running   0          2m29s
+new-replica-set-v48j5   1/1     Running   0          2m29s
+new-replica-set-v7twb   1/1     Running   0          2m29s
+
+controlplane ~ ➜  kubectl get rs
+NAME              DESIRED   CURRENT   READY   AGE
+new-replica-set   5         5         5       2m47s
+
+///////////
+
+Now scale down to 2 pods
+
+controlplane ~ ➜  kubectl scale --replicas=2 replicaset new-replica-set
+replicaset.apps/new-replica-set scaled
+
+controlplane ~ ➜  kubectl get rs
+NAME              DESIRED   CURRENT   READY   AGE
+new-replica-set   2         2         2       4m3s
+
+controlplane ~ ➜  kubectl get pods
+NAME                    READY   STATUS        RESTARTS   AGE
+new-replica-set-jvmv4   1/1     Terminating   0          4m7s
+new-replica-set-k54jx   1/1     Terminating   0          104s
+new-replica-set-rr44k   1/1     Terminating   0          4m7s
+new-replica-set-v48j5   1/1     Running       0          4m7s
+new-replica-set-v7twb   1/1     Running       0          4m7s
+
+controlplane ~ ➜  
+
+controlplane ~ ➜  kubectl get pods
+NAME                    READY   STATUS        RESTARTS   AGE
+new-replica-set-jvmv4   1/1     Terminating   0          4m16s
+new-replica-set-k54jx   1/1     Terminating   0          113s
+new-replica-set-rr44k   1/1     Terminating   0          4m16s
+new-replica-set-v48j5   1/1     Running       0          4m16s
+new-replica-set-v7twb   1/1     Running       0          4m16s
+
+controlplane ~ ➜  kubectl get pods
+NAME                    READY   STATUS    RESTARTS   AGE
+new-replica-set-v48j5   1/1     Running   0          4m45s
+new-replica-set-v7twb   1/1     Running   0          4m45s
+
+
+....

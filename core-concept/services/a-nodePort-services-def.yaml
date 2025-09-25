@@ -1,0 +1,131 @@
+
+Services
+////////////
+
+Enables communications within outside of the application
+
+Groups of pods communications with connectivity is with help of Services
+
+
+
+    Laptop - 192.168.1.10
+
+             |
+             |
+             \/
+----------------------------------------
+| 192.168.1.2 - node ip                 |
+|                                       |                
+|                                       |
+|                                       |  
+|   Pod1 ip - 10.244.0.2     port 3001 |
+|   Pod2 ip - 10.244.0.3               |
+|                                       |
+|                                       |
+|        Node                           |
+-----------------------------------------
+
+
+1. from laptop SSH into the Node with node ip and then use curl cmd below
+  curl http://10.244.0.2
+  Hello World!
+
+
+2. From laptop itself call below command, without ssh into the node
+
+curl http://192.168.1.2 
+  Hello World!
+
+Through laptop the Node to the Pod running the web container
+we need something for this step 2.
+
+K8s Service is k8s object
+ - forward requests on that port to a port on the pod running the web application
+
+ This type of service is known as NodePort service because the service listens to a port on the node and forwrads
+ requests to the pods.
+
+The Service can help us by mapping a port on the node to a port on the pod.
+
+
+Different service in k8s 
+
+  1. NodePort
+
+  2. ClusterIP
+
+  3. LoadBalancer
+
+
+
+NodePort
+--
+--------------------------------------------------------
+| 192.168.1.2 - node ip                                 |
+|                                                       |                
+|                                                       |
+|   Service - [80]                                      |
+                                                        |  
+|   Pod1 ip - 10.244.0.2 - [80]     port 30008 - nodeport    |.  Range 30000 - 32767
+|   
+    Pod2 ip - 10.244.0.3                                |
+|                                                       |
+|                                                       |
+|        Node                                           |
+---------------------------------------------------------
+
+
+service-def-1.yaml
+///////////
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: myapp-service
+
+spec:
+  type: NodePort
+  ports:
+    - targetPort: 80
+      port: 80
+      nodePort: 30008
+
+
+//////////
+use labels and selector for connect servive to pod.
+
+////
+
+///////////
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: myapp-service
+
+spec:
+  type: NodePort
+  ports:
+    - targetPort: 80
+      port: 80
+      nodePort: 30008
+  selector:
+    app: myapp
+    type: front-end
+
+//////////
+
+
+kubectl create -f service-definition.yaml
+kubectl get services
+
+curl http://192.168.1.2:30008
+
+/////
+
+When serivce is created, its looks for a matching pod with the label and finds it 
+Service acts as a built-in LoadBalancer to distribute load across different pods.
+
+Even the service will work same for multiple nodes as well. 
+no change in yaml of service.
+

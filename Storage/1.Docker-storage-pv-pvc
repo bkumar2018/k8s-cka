@@ -1,0 +1,498 @@
+
+Docker Storage:
+
+    Storage Drivers 
+
+    Volume Drivers 
+
+
+Docker storage 
+    File system
+        /var/lib/docker 
+        aufs
+        containers 
+        image
+        volumes 
+
+
+Layered Architecture
+
+Docker build images in layer format, from Dockerfile 
+
+..........
+
+FORM Ubuntu    --> layer 1
+RUN  apt-get update && apt-get -y install python 
+RUN pip install flask flask-mysql 
+COPY . /opt/erc 
+ENTRYPOINT FLASK_APP=/opt/src/app.py flsk run 
+
+..........
+
+
+docker build Dockerfile -t abcds/my-custom-app 
+
+
+Image Layers
+
+Conatiner Layer 
+    -- All data made in container is lost with container 
+
+Volumes:
+    docker volume create data_volume
+            /var/lib/docker/data_volume. --- created here 
+    docker run -v data_volume:/var/lib/mysql mysql
+    docker run -v data_volume2:/var/lib/mysql mysql
+
+        ls -la /var/lib/docker/data_volume
+            volumes
+            data_volume
+            data_volume2
+
+Volume mount
+Bind Mount 
+
+docker run -v /data/mysql:/var/lib/mysql mysql
+
+new way:
+
+docker run \
+    --mount type=bind,source=/data/mysql,target=/var/lib/mysql mysql
+
+Storage Drivers: 
+    AUFS /ZFS BT/RFS /DEVICE MAPPER / OVERLAY 
+
+Volume Drivers:
+    LOCAL / AZURE FILE STORAGE / CONVOY / FLOCKER
+    gce-docker / GlusterFS / NetApp
+    /RexRay /Portworx / VMware vSphere Storage
+
+
+Volume Drivers:
+    docker run -it \
+        --name mysql
+        --volume-driver rexray/ebs
+        --mount src=ebs-vol,target=/var/lib/mysql mysql 
+
+////////////////////////
+In  K8s
+
+CRI - contianer runtime interface 
+rkt / cri-o  / containerd 
+
+
+CNI - container network interface
+Calico / flannel / cilium 
+
+
+CSI - Contianer storage interface
+portwax / amazon EBS / Managed Disk / DWELL EMC / GlusterF / Hitach 
+
+
+
+Volumes:
+------------
+
+
+In docker contaier data is lost with container 
+To persist data we attach volume to container 
+data is now passed to volumes 
+
+in K8s Pod data is lost with pod 
+so we attach volume to pod, even if pod deleted volume still persist
+
+Volume and mount :
+
+apiVersion: v1 
+kind: Pod 
+metadata:
+    name: random-num-gen
+
+spec:
+    contaiers:
+    - image: alpine 
+      name: alpine
+      command: ["/bin/sh", "-c"]
+      args: ["shuf -i 0-100 -n 1 >> /opt/number.out;"]
+      volumeMounts:
+      - mountPath: /opt 
+        name: data-volume
+
+    volumes:
+    - name: data-volume 
+    hostpath:
+     path: /data
+     type: Directory 
+////////////////////////////
+Above pod definition works fine with single node.
+not used for multi-node cluster as all nodes will host data-vloume directory on each node with same data all over 
+
+    volumes:
+    - name: data-volume 
+    hostpath:
+     path: /data
+     type: Directory
+
+so external storage is required here,
+ NFS / GluterFS / Flocker / ceph / Sclae io / AMazon EBS / Google persistent disk 
+
+
+    volumes:
+    - name: data-volume 
+    awsElasticBlockStore:
+     volumeID: <vol-id>
+     fsType: ext4
+
+///////////
+
+Persistent Volumes:
+---------------
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-vol1
+
+spec:
+  accessModes:
+  - ReadWriteOnce
+  capacity:
+    storage: 1Gi 
+  hostpath:
+    path: /tmp/data 
+ 
+  OR 
+  awsElasticBlockStore:
+    volumeID: <vol-id>
+    fsType: ext4
+    
+....................
+
+k cerate -f pv-def.yaml 
+k get persistentvolume
+
+///////////
+Persistent Volume Claims 
+
+
+Admnistartor create sets for Persistent volumes 
+User creates PVC 
+
+//////////////////
+
+
+Persistent Volume Claim 
+
+
+
+
+.....pvc-def.yaml....
+
+apiVersion: v1
+kind: persistentVolumeClaim
+metadata:
+  name: myclaim
+
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 500Mi 
+......................
+
+k create -f pvc-def.yaml 
+
+looks for pv and get it and bound to available pv 
+
+k get persistentvolumeclaim 
+
+k delete persistentvolumeclaim
+    - pv remains 
+        Retain / Delete / Recycle 
+//////////
+
+how to use cerated PVC  in POD 
+
+
+
+................... pod-def.yaml .....
+apiVersion: v1
+kind: Pod
+metadata:
+ name: mypod
+spec:
+ containers:
+  - name: myfrontend
+   image: nginx
+   volumeMounts:
+   - mountPath: "/var/www/html"
+    name: mypd
+ volumes:
+  - name: mypd
+   persistentVolumeClaim:
+    claimName: myclaim
+...................
+
+
+
+The same is true for ReplicaSets or Deployments. Add this to the pod template section of a Deployment on ReplicaSet.
+
+Reference URL: [https://kubernetes.io/docs/concepts/storage/persistent-volumes/#claims-as-volumes\](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#claims-as-volumes)
+
+
+Q & A:
+------
+
+
+Q:
+
+
+controlplane ~ ➜  k get pods
+NAME     READY   STATUS    RESTARTS   AGE
+webapp   1/1     Running   0          8s
+
+controlplane ~ ➜  k exec webapp -- cat /log/app.log
+...
+...
+
+
+Q:
+Configure a volume to store these logs at /var/log/webapp on the host.
+Use the spec provided below.
+
+Name: webapp
+Image Name: kodekloud/event-simulator
+Volume HostPath: /var/log/webapp
+Volume Mount: /log
+
+
+A:
+controlplane ~ ➜  cat sample.yaml 
+apiVersion: v1
+kind: Pod
+metadata:
+  name: webapp
+spec:
+  containers:
+  - name: event-simulator
+    image: kodekloud/event-simulator
+    env:
+    - name: LOG_HANDLERS
+      value: file
+    volumeMounts:
+    - mountPath: /log
+      name: log-volume
+
+  volumes:
+  - name: log-volume
+    hostPath:
+      # directory location on host
+      path: /var/log/webapp
+      # this field is optional
+      type: Directory
+
+
+
+Q:
+Create a Persistent Volume with the given specification.
+
+Volume Name: pv-log
+Storage: 100Mi
+Access Modes: ReadWriteMany
+Host Path: /pv/log
+Reclaim Policy: Retain
+
+A:
+
+controlplane ~ ➜  cat pv-def.yaml 
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-log
+spec:
+  persistentVolumeReclaimPolicy: Retain
+  accessModes:
+    - ReadWriteMany
+  capacity:
+    storage: 100Mi
+  hostPath:
+    path: /pv/log
+
+
+controlplane ~ ➜  k create -f pv-def.yaml 
+persistentvolume/pv-log created
+
+controlplane ~ ➜  k get persistentvolume
+NAME     CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS      CLAIM   STORAGECLASS   VOLUMEATTRIBUTESCLASS   REASON   AGE
+pv-log   100Mi      RWX            Retain           Available                          <unset>  
+
+
+
+Q:
+
+Let us claim some of that storage for our application. Create a Persistent Volume Claim with the given specification.
+
+Persistent Volume Claim: claim-log-1
+Storage Request: 50Mi
+Access Modes: ReadWriteOnce
+
+
+A:
+controlplane ~ ➜  vim pvc-def.yaml 
+
+controlplane ~ ➜  cat pvc-def.yaml 
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: claim-log-1
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Mi
+
+
+controlplane ~ ➜  k create -f pvc-def.yaml 
+persistentvolumeclaim/claim-log-1 created
+
+controlplane ~ ➜  k get persistentvolumecalim
+error: the server doesn't have a resource type "persistentvolumecalim"
+
+controlplane ~ ✖ k get PersistentVolumeClaim
+NAME          STATUS    VOLUME   CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+claim-log-1   Pending                                                     <unset>                 18s
+
+controlplane ~ ➜  k get pv
+NAME     CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS      CLAIM   STORAGECLASS   VOLUMEATTRIBUTESCLASS   REASON   AGE
+pv-log   100Mi      RWX            Retain           Available                          <unset>                          6m15s
+
+controlplane ~ ➜  k get pvc
+NAME          STATUS    VOLUME   CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+claim-log-1   Pending                                                     <unset>                 98s
+
+/////
+Set the Access Mode on the PVC to ReadWriteMany.
+////
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  creationTimestamp: "2025-09-25T02:11:04Z"
+  finalizers:
+  - kubernetes.io/pvc-protection
+  name: claim-log-1
+  namespace: default
+  resourceVersion: "3216"
+  uid: 8d1dc466-2f3a-4fee-a02f-2c8e201d5415
+spec:
+  accessModes:
+  - ReadWriteMany 
+  resources:
+    requests:
+      storage: 50Mi
+  volumeMode: Filesystem
+status:
+  phase: Pending
+
+........
+
+controlplane ~ ✖ k delete pvc claim-log-1
+persistentvolumeclaim "claim-log-1" deleted
+
+controlplane ~ ➜  k apply -f /tmp/kubectl-edit-4071384533.yaml
+persistentvolumeclaim/claim-log-1 created
+
+
+
+
+Q:
+
+Update the webapp pod to use the persistent volume claim as its storage.
+Replace hostPath configured earlier with the newly created PersistentVolumeClaim.
+
+Name: webapp
+Image Name: kodekloud/event-simulator
+Volume: PersistentVolumeClaim=claim-log-1
+Volume Mount: /log
+
+A:
+
+controlplane ~ ➜  vim webapp-pod-def.yaml 
+
+controlplane ~ ➜  cat webapp-pod-def.yaml 
+apiVersion: v1
+kind: Pod
+metadata:
+  name: webapp
+spec:
+  containers:
+  - name: event-simulator
+    image: kodekloud/event-simulator
+    env:
+    - name: LOG_HANDLERS
+      value: file
+    volumeMounts:
+    - mountPath: /log
+      name: log-volume
+
+  volumes:
+  - name: log-volume
+    persistentVolumeClaim:
+      claimName: claim-log-1
+
+
+
+controlplane ~ ✖ k delete pod webapp
+pod "webapp" deleted
+
+controlplane ~ ➜  k create -f webapp-pod-def.yaml 
+pod/webapp created
+
+
+controlplane ~ ➜  k get pvc
+NAME          STATUS   VOLUME   CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+claim-log-1   Bound    pv-log   100Mi      RWX                           <unset>                 5m48s
+
+controlplane ~ ➜  k get pv
+NAME     CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM                 STORAGECLASS   VOLUMEATTRIBUTESCLASS   REASON   AGE
+pv-log   100Mi      RWX            Retain           Bound    default/claim-log-1                  <unset>                          22m
+
+
+
+controlplane ~ ✖ k delete pvc claim-log-1 
+persistentvolumeclaim "claim-log-1" deleted
+
+
+controlplane ~ ✖ k get pvc
+NAME          STATUS        VOLUME   CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+claim-log-1   Terminating   pv-log   100Mi      RWX                           <unset>                 7m48s
+
+
+Why is the PVC stuck in Terminating state?
+A:
+As PVC is being used by the Pod 
+
+............
+
+Now lets delete Pod webapp 
+
+controlplane ~ ✖ k delete pod webapp
+pod "webapp" deleted
+
+
+After pod deletion, What is the state of the PVC now?
+A:
+Deleted 
+
+
+Q:What is the state of the Persistent Volume now?
+A:
+Released 
+
+controlplane ~ ➜  k get pv
+NAME     CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS     CLAIM                 STORAGECLASS   VOLUMEATTRIBUTESCLASS   REASON   AGE
+pv-log   100Mi      RWX            Retain           Released   default/claim-log-1                  <unset>                          27m
+
+
+Q:

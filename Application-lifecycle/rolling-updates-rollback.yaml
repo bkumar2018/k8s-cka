@@ -1,0 +1,100 @@
+
+Rollout n Versioning
+
+
+kubectl rollout status deployment/myapp-deployment
+
+kubectl rollout history deployment/nameodeployment
+
+
+Deployment Strategy:
+
+  Rolling update is default strategy  - one at a time app is down and up 
+
+kubectl describe deployment nameofdeployment 
+
+
+kubectl get replicasets
+
+..........command summary.........
+
+kubectl create -f deployment-def.yml 
+kubectl get deployments
+
+update:
+kubectl apply -f deployment-def.yml
+kubectl set image deployment/myapp-deployment nginx=nginx:1.9.1
+
+status:
+kubectl rollout status deployment/myapp-deployment
+kubectl rollout history deployment/myapp-deployment
+
+Rollback:
+kubectl rollout undo deployment/myapp-deployment
+
+......
+
+controlplane ~ ✖ kubectl get all
+NAME                            READY   STATUS    RESTARTS   AGE
+pod/frontend-6765b99794-nh2mp   1/1     Running   0          27s
+pod/frontend-6765b99794-pnjgx   1/1     Running   0          27s
+pod/frontend-6765b99794-vb4n9   1/1     Running   0          27s
+pod/frontend-6765b99794-xrpsz   1/1     Running   0          27s
+
+NAME                     TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)          AGE
+service/kubernetes       ClusterIP   10.43.0.1       <none>        443/TCP          5m45s
+service/webapp-service   NodePort    10.43.177.252   <none>        8080:30080/TCP   27s
+
+NAME                       READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/frontend   4/4     4            4           27s
+
+NAME                                  DESIRED   CURRENT   READY   AGE
+replicaset.apps/frontend-6765b99794   4         4         4       27s
+
+
+controlplane ~ ✖ kubectl describe pod frontend-6765b99794-nh2mp | grep image
+  Normal  Pulling    2m56s  kubelet            Pulling image "kodekloud/webapp-color:v1"
+  Normal  Pulled     2m54s  kubelet            Successfully pulled image "kodekloud/webapp-color:v1" in 2.012s (2.012s including waiting). Image size: 31741738 bytes.
+
+
+controlplane ~ ➜  kubectl describe deployment frontend | grep StrategyType:
+StrategyType:           RollingUpdate
+
+Due to above strategy: few get uprade one at a time 
+
+controlplane ~ ✖ kubectl set image deployment frontend webapp-color=webapp-color:
+v2 
+error: unable to find container named "webapp-color"
+
+
+controlplane ~ ✖ kubectl set image deployment frontend simple-webapp=kodekloud/webapp-color:v2
+deployment.apps/frontend image updated
+
+
+kubectl set image deployment frontend simple-webapp=kodekloud/webapp-color:v3
+
+controlplane ~ ➜  kubectl edit deployment frontend
+error: deployments.apps "frontend" is invalid
+A copy of your changes has been stored to "/tmp/kubectl-edit-1961651938.yaml"
+error: Edit cancelled, no valid changes were saved.
+
+controlplane ~ ➜  kubectl delete deployment frontend
+deployment.apps "frontend" deleted
+
+
+controlplane ~ ➜  kubectl apply -f /tmp/kubectl-edit-1961651938.yaml
+deployment.apps/frontend created
+
+controlplane ~ ➜  kubectl get deployments
+NAME       READY   UP-TO-DATE   AVAILABLE   AGE
+frontend   4/4     4            0           12s
+
+
+
+
+alias
+
+alias k='kubectl'
+alias kubectl='k3s kubectl'
+alias vi='vim'
+

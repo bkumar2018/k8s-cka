@@ -1,0 +1,27 @@
+
+k get nodes
+v1.33.0.  -- April 2025
+
+1 major
+33 minor
+0 patch - with bug fixes
+
+Release History
+
+v1.xx.y
+
+kube-apiserver.  v1.xx.y
+controller-manager. v1.xx.y
+kube-scheduler. v1.xx.y
+etcd Cluster. --- v3.3.18. - these 2 have there own versions
+CoreDNS -- v1.1.3
+
+
+kubelet. v1.xx.y
+kube-proxy.  v1.xx.y
+kubectl  v1.xx.y
+
+
+
+
+

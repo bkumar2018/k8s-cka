@@ -1,0 +1,76 @@
+
+K8s architecture:
+
+what happens when you hit, command:
+
+kubectl get nodes
+
+1. 
+request goes to kube-apiserver
+ETCD cluster
+kube-scheduler
+
+Authenticate User
+Validate User
+Retrive data
+Update ETCD 
+scheduler
+
+
+kubectl get ns 
+chanchal@Chanchals-MacBook-Pro cka-certification % kubectl get ns 
+NAME              STATUS   AGE
+default           Active   278d
+ingress-nginx     Active   75d
+kube-node-lease   Active   278d
+kube-public       Active   278d
+kube-system       Active   278d
+monitoring        Active   72d
+
+
+kubectl get pods -n kube-system
+chanchal@Chanchals-MacBook-Pro cka-certification % kubectl get pods -n kube-system
+NAME                               READY   STATUS    RESTARTS       AGE
+coredns-6f6b679f8f-mjx6m           1/1     Running   12 (18h ago)   278d
+etcd-minikube                      1/1     Running   12 (18h ago)   278d
+kube-apiserver-minikube            1/1     Running   12 (18h ago)   278d
+kube-controller-manager-minikube   1/1     Running   12 (18h ago)   278d
+kube-proxy-6n9vd                   1/1     Running   12 (18h ago)   278d
+kube-scheduler-minikube            1/1     Running   12 (18h ago)   278d
+metrics-server-84c5f94fbc-k7xxz    1/1     Running   8 (18h ago)    99d
+storage-provisioner                1/1     Running   24 (18h ago)   278d
+
+
+ps -aux | grep kube-apiserver
+
+
+kube controller manager:
+ - Node controller
+ - Replication controller
+ - Deployment controller
+ - Namespace controller
+ - PV controller
+ etc many more
+
+
+ Kube scheduler:
+    decide which pod goes to which nodes depending on container resources.
+
+
+
+kubelet - captain on the ship 
+    [from worker nodes]
+    - Register Node
+    - Create pod
+    - Monitor nodes and pods
+
+kube-proxy :
+    pods communicate with nodes 
+    pod1 from node1 can communictae with pod2 in node2
+    kube-porxy is process run on each. nodes, looks for services on nodes
+
+containerization :
+    docker
+
+
+    

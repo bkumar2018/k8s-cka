@@ -1,0 +1,47 @@
+
+
+Docker security:
+
+
+
+docker run ubuntu sleep 3600
+
+container and host share same kernel
+
+containers are differe in namespaces
+
+list process in container
+ps aux 
+sleep command with pid 
+
+
+list process on host
+ps aux 
+include sleep command different pid 
+
+
+///
+FROM ubuntu
+USER 1000
+
+//
+
+docker build -t my-ubuntu-iamge .
+docker run my-ubuntu-image sleep 3600
+
+docker run --cap-add MAC_ADMIN ubuntu
+docker run --privileged ubuntu
+
+//////////
+Security Context 
+
+kubernetes security
+
+In k8s containers are encapsulated within pods 
+
+Security contenxt in k8s, container level and pod level
+securityContext:
+
+
+
+

@@ -1,0 +1,109 @@
+
+controlplane ~ ➜  cat nginx.yaml 
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+spec:
+  containers:
+  -  image: nginx
+     name: nginx
+
+
+controlplane ~ ➜  
+
+kubectl create -f nginx.yaml 
+
+controlplane ~ ➜  kubectl apply -f nginx.yaml 
+pod/nginx created
+
+
+controlplane ~ ➜  kubectl get pods
+NAME    READY   STATUS    RESTARTS   AGE
+nginx   0/1     Pending   0          53s
+
+
+Q:
+Why is the POD in a pending state?
+Inspect the environment for various kubernetes control plane components.
+
+
+kubectl describe pod nginx 
+
+kubectl get pods -n kube-system
+
+
+A:
+The POD is in a pending state because the scheduler is not present or not running. The scheduler is responsible for assigning pods to nodes. Without it, the pod cannot be scheduled and remains pending.
+Since the answer is "No Scheduler Present," that confirms the root cause. Make sure the scheduler component is running in your control plane!
+
+
+.................
+controlplane ~ ➜  cat nginx.yaml 
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+spec:
+  containers:
+  -  image: nginx
+     name: nginx
+  nodeName: node01
+
+.................
+
+kubectl replace --force -f nginx.yaml
+
+
+controlplane ~ ➜  kubectl apply -f nginx.yaml 
+pod/nginx created
+
+controlplane ~ ➜  kubectl get pods
+NAME    READY   STATUS              RESTARTS   AGE
+nginx   0/1     ContainerCreating   0          7s
+
+controlplane ~ ➜  kubectl get pods
+NAME    READY   STATUS    RESTARTS   AGE
+nginx   1/1     Running   0          10s
+
+
+kubectl get pod nginx -o wide
+
+controlplane ~ ➜  kubectl get pod nginx -o wide
+NAME    READY   STATUS              RESTARTS   AGE   IP       NODE           NOMINATED NODE   READINESS GATES
+nginx   0/1     ContainerCreating   0          7s    <none>   controlplane   <none>           <none>
+
+
+Q:
+Now schedule the same pod on the controlplane node.
+Delete and recreate the POD if necessary.
+
+A:
+controlplane ~ ➜  cat nginx.yaml 
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+spec:
+  containers:
+  -  image: nginx
+     name: nginx
+  nodeName: controlplane 
+
+  ................
+
+controlplane ~ ➜  kubectl apply -f nginx.yaml 
+pod/nginx created
+
+controlplane ~ ➜  kubectl get pods
+NAME    READY   STATUS    RESTARTS   AGE
+nginx   1/1     Running   0          6s
+
+controlplane ~ ➜  kubectl get pod nginx -o wide
+NAME    READY   STATUS    RESTARTS   AGE   IP           NODE           NOMINATED NODE   READINESS GATES
+nginx   1/1     Running   0          16s   172.17.0.5   controlplane   <none>           <none>
+
+

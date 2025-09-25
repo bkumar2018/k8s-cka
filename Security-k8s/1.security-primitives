@@ -1,0 +1,356 @@
+
+Secure Hosts
+
+Password based authentication 
+SSH key based authentication
+
+
+Secure K8s
+
+Kube-apiserver -- using kubectl 
+
+who can access?
+what can they do?
+
+Authentication :
+Certificates
+LDAP
+service account 
+
+
+Authorization
+RBAC 
+Node
+Webhook
+
+
+With TLS Certificates
+
+All intract with kube-apiserver using TLS Certificates
+kube-apiserver 
+    - etcd 
+    - kube controller-manager
+    - kube-scheduler
+    - kube-proxy
+    - kubelet 
+
+
+Network Policies:
+    restict access to comunicate pod and nodes with Policies
+
+
+Accounts:
+   Users: 
+        Admins
+        Developers
+        k create user user1
+        k list users 
+
+    Bots --- service account 
+        k create serviceaccount sa1
+        k get serviceaccount
+
+managed by kube-apiserver 
+
+TLS Certificates:
+------------------
+Basics:
+
+secure ssh or webserver
+
+
+Users      ------->         Web Server 
+
+
+User data[id/pwd]  is encrypted and send to server 
+
+Symmetric Encryption - same key used for Encryption and Decryption
+
+Asymmetric Encryption:
+    uses Pvt and Pub key 
+    Pvt key and Pub lock 
+
+SSH access to server:
+    user                                        webserver
+    pub and pvt key                             
+    using ssh-keygen                            cat ~/.ssh/authorized_keys
+    id_rsa and is_rsa.pub                       
+    send id_rsa.pub tp servers 
+
+
+
+cerate Asymmetric key using openssl:
+
+openssl genrsa -out my-bank.key 1024
+openssl rsa -in my-bank.key -pubout > mybank.pem 
+
+[Symmetrickey]Asymmetric pub key 
+
+using both as per required
+
+send Certificates with pub key 
+who signed and issue the Certificates
+self signed Certificates
+all browser validates the certificates, it warns you.
+
+CA certificates authority 
+
+Generate CSR -> validates info -> Sign and send certificates 
+All CA have pub and pvt keys.
+
+All browser have pub key inbuilt with browser and pvt key is with CA 
+pvt key is used for signing the certificates and from browser using pub key it verify it.
+
+Trusted Root Certificates Authorities
+    symantec
+    GlobalSign
+    digiCert
+
+
+Public key:
+    server.crt 
+    server.pem 
+    client.crt 
+    client.pem 
+
+Private Key:
+    server.key 
+    server-key.pem 
+    client.key 
+    client-key.pem 
+
+
+Pvt keys have name 'key' in there names either as extenion or in the name with '-'
+without the name key in certificates name is pub key.
+
+
+
+Server certificates
+Root Certificates. -- configure at CA end 
+Client Certificates
+
+K8s cluster :
+
+Master and worker nodes 
+all communication is secure between them
+
+kube-apiserver
+    exposes http service 
+    apiserver.crt apiserver.key 
+
+etcd server:
+    etcdserver.crt and etcdserver.key 
+
+kubelet server:
+    kubelet.crt and kubelet.key 
+
+
+Client end:
+
+    Admin:
+        admin.crt and admin.key 
+
+    kube-scheduler
+        scheduler.crt and scheduler.key 
+
+    kube-controller-manager:
+        controller-manager.crt and controller-manager.key 
+    
+    kube-proxy:
+        kube-proxy.crt and kube-proxy.key 
+    
+
+
+We need Certificates Authority (CA)
+    ca.crt and ca.key 
+
+To Generate certificates using tools:
+
+using openssl:
+
+CA certificates:
+    ca.key --> openssl genrsa -out ca.key 2048
+    ca.csr --> openssl req -new -key ca.key -subj "/CN=K8s-CA" -out ca.csr 
+    ca.crt --> openssl x509 -req -in ca.csr -signkey ca.key -out ca.crt 
+
+
+Admin User certificates:
+    admin.key --> openssl genrsa -out admin.key 2048
+    admin.csr --> openssl req -new -key admin.key -subj "/CN=kube-admin" -out admin.csr 
+            or using group
+            --> openssl req -new -key admin.key -subj "/CN=kube-admin/OU=system:masters" -out admin.csr 
+
+    admin.crt --> openssl x509 -req -in admin.csr -CA ca.crt -CAkey ca.key -out admin.crt 
+
+Similarly will create certificates for other components.
+
+
+
+View TLS certificates - details
+
+cat /etc/k8s/maifests/kube-apiserver.yaml 
+    /etc/k8s/pki/apiserver.crt 
+
+openssl x509 -in /etc.k8s/pki/apiserver.crt -text -noout 
+    subject: CN=kube-apiserver
+
+/////////
+
+Q:
+Identify the certificate file used for the kube-api server ?
+
+
+cat /etc/kubernetes/manifests/kube-apiserver
+
+Q:
+
+Identify the Certificate file used to authenticate kube-apiserver as a client to ETCD Server.
+
+A:
+cat /etc/kubernetes/manifests/kube-apiserver.yaml 
+
+controlplane ~ ➜  cat /etc/kubernetes/manifests/kube-apiserver.yaml | grep etcd
+    - --etcd-cafile=/etc/kubernetes/pki/etcd/ca.crt
+    - --etcd-certfile=/etc/kubernetes/pki/apiserver-etcd-client.crt
+    - --etcd-keyfile=/etc/kubernetes/pki/apiserver-etcd-client.key
+    - --etcd-servers=https://127.0.0.1:2379
+
+controlplane ~ ➜  cat /etc/kubernetes/manifests/kube-apiserver.yaml | grep etcd-certfile
+    - --etcd-certfile=/etc/kubernetes/pki/apiserver-etcd-client.crt
+
+Q:
+Identify the key used to authenticate kubeapi-server to the kubelet server
+
+A:
+controlplane ~ ➜  cat /etc/kubernetes/manifests/kube-apiserver.yaml | grep kubelet-client-key
+    - --kubelet-client-key=/etc/kubernetes/pki/apiserver-kubelet-client.key
+
+
+controlplane ~ ✖ openssl x509 -in /etc/kubernetes/pki/apiserver.crt -text -noout| grep CN
+        Issuer: CN = kubernetes
+        Subject: CN = kube-apiserver
+
+
+controlplane ~ ➜  openssl x509 -in /etc/kubernetes/pki/apiserver.crt -text -noout| grep Issuer:
+        Issuer: CN = kubernetes
+
+
+Q:
+Which of the below alternate names is not configured on the Kube API Server Certificate?
+
+A:
+kube-master
+
+controlplane ~ ➜  openssl x509 -in /etc/kubernetes/pki/apiserver.crt -text -noout| grep DNS
+                DNS:controlplane, DNS:kubernetes, DNS:kubernetes.default, DNS:kubernetes.default.svc, DNS:kubernetes.default.svc.cluster.local, IP Address:172.20.0.1, IP Address:192.168.211.138
+
+Q:
+What is the Common Name (CN) configured on the ETCD Server certificate?
+
+A:
+controlplane ~ ➜  openssl x509 -in /etc/kubernetes/pki/etcd/server.crt -text -noo
+ut| grep CN
+        Issuer: CN = etcd-ca
+        Subject: CN = controlplane
+
+Q:
+How long, from the issued date, is the Kube-API Server Certificate valid for?
+
+File: /etc/kubernetes/pki/apiserver.crt
+
+A:
+1 year
+
+controlplane ~ ➜  openssl x509 -in /etc/kubernetes/pki/apiserver.crt -text -noout
+Certificate:
+    Data:
+        Version: 3 (0x2)
+        Serial Number: 5061483114939872291 (0x463e00137ea0f423)
+        Signature Algorithm: sha256WithRSAEncryption
+        Issuer: CN = kubernetes
+        Validity
+            Not Before: Sep 21 07:11:02 2025 GMT
+            Not After : Sep 21 07:16:02 2026 GMT
+        Subject: CN = kube-apiserver
+ 
+Q:
+How long, from the issued date, is the Root CA Certificate valid for?
+
+File: /etc/kubernetes/pki/ca.crt
+
+A:
+10 year
+
+controlplane ~ ➜  openssl x509 -in /etc/kubernetes/pki/ca.crt -text -noout
+Certificate:
+    Data:
+        Version: 3 (0x2)
+        Serial Number: 4276388038422554965 (0x3b58c8437fe7e955)
+        Signature Algorithm: sha256WithRSAEncryption
+        Issuer: CN = kubernetes
+        Validity
+            Not Before: Sep 21 07:11:02 2025 GMT
+            Not After : Sep 19 07:16:02 2035 GMT
+        Subject: CN = kubernetes
+
+
+
+root@controlplane:~# ls -l /etc/kubernetes/pki/etcd/server* | grep .crt
+-rw-r--r-- 1 root root 1188 May 20 00:41 /etc/kubernetes/pki/etcd/server.crt
+root@controlplane:~#
+
+
+
+
+openssl x509 -i /etc/kubernetes/pki/apiserver.crt -text -noout 
+
+kubeapiserver has. multiple names: 
+look under DNS in certitifcates
+
+
+openssl x509 -i /etc/kubernetes/pki/etcd/server.crt -text -noout 
+
+
+kubectl get pods --> show error, as kubectl is not able to connect to api-server 
+
+docker ps -a | grep kube-apiserver
+docker logs <containerId>
+
+docker ps -a | grep etcd 
+docker logs <containerId>
+    error: /etc/kubernetes/pki/etcd/server-certificate.crt -- no such file or directory 
+
+ls  /etc/kubernetes/pki/etcd/server-certificate.crt   -- no such file
+ls /etc/kubernetes/pki/etcd 
+    server.crt 
+
+cat /etc/kubernetes/manifests/etcd.yaml | grep server-certificate.crt 
+
+vim /etc/kubernetes/manifests/etcd.yaml -- edit file for etcd/server.crt 
+
+
+docker ps -a | grep kube-api 
+
+docker log <containerId>
+ - no error 
+
+kubectl get nodes 
+    - now kubectl is running 
+
+/////////
+kubectl get nodes 
+    TLS handshake error
+docker ps -a | grep kube-api 
+
+docker logs <containerId>
+    unknown authority 
+    failed to connect 127.0.0.0/2379 --> unable to connect to etcd server 
+
+docker ps -a | grep etcd 
+docker logs <containerId>
+    bad certitifcates
+
+cat /etc/kubernetes/manifests/kube-apiserver.yaml | grep "\-\-etcd"
+    --etcd-cafile=<ca.crt>
+
+ls /etc/kubernetes/pki/etcd/ca.crt 

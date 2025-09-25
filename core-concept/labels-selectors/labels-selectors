@@ -1,0 +1,121 @@
+
+Labels and Selctors in k8s 
+
+
+pod-def.yaml
+
+apiVersion: v1
+matadata:
+    name: simple-webapp
+    labels:
+        app: App1
+        function: Front-end
+
+spec:
+    continers:
+    -   name: simple-webapp
+        image: simple-webapp
+        ports:
+            -   containerPort: 8080
+
+.............
+
+kubectl get pods --selector app=App1
+
+
+k8s objects uses labels and selector internally for access objects for example as below:
+
+
+replicaset-def.yaml
+
+apiVersion: v1
+metadata:
+    name:
+    labels:
+        app: App1
+        function: Front-end
+
+spec:
+    replicas: 3
+    selector:
+        matchLabels:
+            app: App1
+    template:
+        metadata:
+            labels:
+                app: App1
+                function: Front-end
+        spec:
+            containers:
+            -   name: simple-webapp
+                image: simple-webapp
+
+...................
+Here in replicaset definition above, it uses pods label in selector section for refering which pod to scale for OldReplicaSets
+
+
+
+
+controlplane ~ ➜  ls
+replicaset-definition-1.yaml
+
+controlplane ~ ➜  kubectl get pods
+NAME          READY   STATUS    RESTARTS   AGE
+app-1-n7x2f   1/1     Running   0          19s
+app-1-pnr85   1/1     Running   0          19s
+app-1-zqfph   1/1     Running   0          19s
+app-1-zzxdf   1/1     Running   0          19s
+app-2-h7bb9   1/1     Running   0          19s
+auth          1/1     Running   0          19s
+db-1-4td5s    1/1     Running   0          19s
+db-1-bs26l    1/1     Running   0          19s
+db-1-fxkmc    1/1     Running   0          19s
+db-1-n72c7    1/1     Running   0          19s
+db-2-qwzrs    1/1     Running   0          19s
+
+
+
+Q:
+We have deployed a number of PODs. They are labelled with tier, env and bu. How many PODs exist in the dev environment (env)?
+Use selectors to filter the output
+
+A:
+
+controlplane ~ ➜  kubectl get pods --show-labels=true
+NAME          READY   STATUS    RESTARTS   AGE     LABELS
+app-1-n7x2f   1/1     Running   0          3m36s   bu=finance,env=dev,tier=frontend
+app-1-pnr85   1/1     Running   0          3m36s   bu=finance,env=dev,tier=frontend
+app-1-zqfph   1/1     Running   0          3m36s   bu=finance,env=dev,tier=frontend
+app-1-zzxdf   1/1     Running   0          3m36s   bu=finance,env=prod,tier=frontend
+app-2-h7bb9   1/1     Running   0          3m36s   env=prod,tier=frontend
+auth          1/1     Running   0          3m36s   bu=finance,env=prod
+db-1-4td5s    1/1     Running   0          3m36s   env=dev,tier=db
+db-1-bs26l    1/1     Running   0          3m36s   env=dev,tier=db
+db-1-fxkmc    1/1     Running   0          3m36s   env=dev,tier=db
+db-1-n72c7    1/1     Running   0          3m36s   env=dev,tier=db
+db-2-qwzrs    1/1     Running   0          3m36s   bu=finance,env=prod,tier=db
+
+
+ 
+ How many PODs are in the finance business unit (bu)?
+ A: 6
+
+ 
+
+ kubectl get pods 
+ kubectl get pods --selector env=dev 
+ kubectl get pods --selector env=dev | wc -l 
+ kubectl get pods --selector env=dev --no-headers
+
+kubectl get pods --selector env=dev --no-headers | wc -l
+
+kubectl get pods --selector bu=finance --no-headers | wc -l
+
+
+kubectl get all --selector env=prod --no-headers 
+
+kubectl get all --selector env=prod --no-headers | wc -l 
+
+kubectl get all --selector env=prod,bu=finance,tier=frontend
+
+

@@ -1,0 +1,76 @@
+
+Monitor
+
+Monitoring of Pods and Nodes in k8s clusters
+
+
+metric:
+    cpu 
+    memory
+
+Monitoring solution:
+    Metrics server per k8s cluster - in memory solution
+
+    Prometheus
+    Elastic stack 
+
+
+minikube addons enable metrics-server
+
+git clone https://github.com/kubernetes-sigs/metrics-server.git
+kubectl create -f deploy/1.8+/
+
+kubectl top node 
+
+kubectl top pod 
+
+
+controlplane ~ ➜  kubectl get pods
+NAME       READY   STATUS    RESTARTS   AGE
+elephant   1/1     Running   0          18s
+lion       1/1     Running   0          18s
+rabbit     1/1     Running   0          18s
+
+controlplane ~ ➜  ls
+sample.yaml
+
+controlplane ~ ➜  kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+serviceaccount/metrics-server created
+clusterrole.rbac.authorization.k8s.io/system:aggregated-metrics-reader created
+clusterrole.rbac.authorization.k8s.io/system:metrics-server created
+rolebinding.rbac.authorization.k8s.io/metrics-server-auth-reader created
+clusterrolebinding.rbac.authorization.k8s.io/metrics-server:system:auth-delegator created
+clusterrolebinding.rbac.authorization.k8s.io/system:metrics-server created
+service/metrics-server created
+deployment.apps/metrics-server created
+apiservice.apiregistration.k8s.io/v1beta1.metrics.k8s.io created
+
+
+controlplane ~ ✖ kubectl top node
+NAME           CPU(cores)   CPU(%)   MEMORY(bytes)   MEMORY(%)   
+controlplane   326m         2%       889Mi           1%          
+node01         43m          0%       157Mi           0%          
+
+
+Q: Identify the node that consumes the most CPU(cores).
+A; controlplane
+
+Most memory: controlplane 
+
+Q:
+Identify the POD that consumes the most Memory(bytes) in default namespace.
+A: 
+rabbit 
+
+controlplane ~ ➜  kubectl top pod
+NAME       CPU(cores)   MEMORY(bytes)   
+elephant   21m          30Mi            
+lion       1m           16Mi            
+rabbit     150m         250Mi      
+
+Q:
+Identify the POD that consumes the least CPU(cores) in default namespace.
+A:
+lion
+
+

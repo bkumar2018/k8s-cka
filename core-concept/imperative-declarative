@@ -1,0 +1,206 @@
+
+https://github.com/kodekloudhub/certified-kubernetes-administrator-course
+
+Imperative commands
+
+create objects
+kubectl run --image=nginx nginx 
+kubectl create deployment --image=nginx nginx 
+kubectl create deployment nginx --image=nginx --replicas=4
+kubectl expose deployment nginx --port 80
+
+update objects
+
+kubectl edit deployment nginx
+kubectl scale deployment nginx --replicas=5
+kubectl set image deployment nginx nginx=nginx:1.18
+
+
+kubectl create service clusterip -h
+kubectl create service clusterip redis-service --tcp=6379:6379
+
+kubectl expose pod redis --name=redis-service --port=6379 --target-port=6379
+
+
+kubectl replace -f nginx.yaml
+
+manifest Files , object configure files
+
+...........
+apiVersion: v1 
+kind: Pod
+
+metadata:
+  name: myapp-pod
+  labels:
+    app: myapp
+    type: front-end
+
+spec:
+  containers:
+  - name: nginx-controller
+    image: nginx
+  
+...........
+
+
+Declarative approach
+
+kubectl apply -f nginx.yaml -- for create 
+kubectl apply -f nginx.yaml -- for update 
+
+
+Live object configuration and last applied configuration in k8s
+
+
+local file ->  pod-def.yaml 
+last applied configuration file is k8s create for it porpose and uses it for any more chnages done in local file.
+
+
+
+
+..............
+Imperative commands are useful for quick, interactive tasks or experimentation, while declarative files are better for reproducible, version-controlled deployments.
+
+create the YAML file using imperative methods (for example, with --dry-run=client -o yaml). You can then modify the YAML as needed and create the object.
+
+.............
+
+Imerative commands, 
+
+kubectl run mypod --image=nginx
+
+Q: Deploy a pod named nginx-pod using the nginx:alpine image.
+A: 
+controlplane ~ ✖ kubectl run nginx-pod --image=nginx:alpine
+pod/nginx-pod created
+
+controlplane ~ ➜  kubectl get pods
+NAME        READY   STATUS    RESTARTS   AGE
+nginx-pod   1/1     Running   0          6s
+
+
+Q:
+Deploy a redis pod using the redis:alpine image with the labels set to tier=db.
+A:
+controlplane ~ ➜  kubectl run redis --labels=tier=db --image=redis:alpine
+pod/redis created
+
+Q:
+Create a service named redis-service to expose the existing redis pod within the cluster on port 6379.
+A:
+
+help command
+controlplane ~ ➜  kubectl create service clusterip -h
+
+ontrolplane ~ ➜  kubectl create service clusterip redis-service --tcp=6379:6379
+service/redis-service created
+
+controlplane ~ ➜  kubectl get service
+NAME            TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)    AGE
+kubernetes      ClusterIP   10.43.0.1      <none>        443/TCP    24m
+redis-service   ClusterIP   10.43.240.81   <none>        6379/TCP   5s
+
+Q:
+Create a deployment named webapp using the image kodekloud/webapp-color with 3 replicas.
+Try to use imperative commands only. Do not create definition files.
+
+A:
+help command
+kubectl create deployment -h
+
+controlplane ~ ➜  kubectl create deployment webapp --image=kodekloud/webapp-color --replicas=3 
+deployment.apps/webapp created
+
+controlplane ~ ➜  kubectl get deployment
+NAME     READY   UP-TO-DATE   AVAILABLE   AGE
+webapp   3/3     3            3           8s
+
+
+Q:
+Create a new pod called custom-nginx using the nginx image and run it on container port 8080.
+A:
+
+help command
+kubectl run -h 
+
+controlplane ~ ➜  kubectl run custom-nginx --image=ngix --port=8080
+pod/custom-nginx created
+
+controlplane ~ ➜  kubectl get pod
+NAME                     READY   STATUS             RESTARTS   AGE
+custom-nginx             0/1     ErrImagePull       0          4s
+nginx-pod                1/1     Running            0          23m
+pod                      0/1     ImagePullBackOff   0          94s
+redis                    1/1     Running            0          20m
+webapp-647f97789-4jmcc   1/1     Running            0          9m46s
+webapp-647f97789-69mqt   1/1     Running            0          9m46s
+webapp-647f97789-wdqn8   1/1     Running            0          9m46s
+
+Q:
+Create a new namespace called dev-ns.
+Use imperative commands.
+
+A:
+help command
+kubectl create namespace -h
+
+controlplane ~ ➜  kubectl create namespace dev-ns
+namespace/dev-ns created
+
+Q:
+Create a new deployment called redis-deploy in the dev-ns namespace with the redis image. It should have 2 replicas.
+Use imperative commands.
+A:
+
+-n is option for namespace
+or
+--namespace
+
+controlplane ~ ✖ kubectl delete deployment redis-deploy -n=dev-ns
+deployment.apps "redis-deploy" deleted
+
+controlplane ~ ➜  kubectl create deployment redis-deploy -n=dev-ns --image=redis --replicas=2
+deployment.apps/redis-deploy created
+
+from default namespace->
+controlplane ~ ➜  kubectl get deployment
+NAME     READY   UP-TO-DATE   AVAILABLE   AGE
+webapp   3/3     3            3           16m
+
+
+from dev-ns namespace->
+controlplane ~ ➜  kubectl get deployment -n=dev-ns
+NAME           READY   UP-TO-DATE   AVAILABLE   AGE
+redis-deploy   2/2     2            2           67s
+
+
+Q:
+Create a pod named httpd using the image httpd:alpine in the default namespace.
+Then, create a service of type ClusterIP with the same name (httpd) that exposes the pod on port 80.
+Try to do this with as few steps as possible.
+
+A:
+
+controlplane ~ ➜  kubectl run httpd --image=httpd:alpine 
+pod/httpd created
+
+controlplane ~ ✖ kubectl create svc clusterip httpd --tcp=80:80
+service/httpd created
+
+controlplane ~ ✖ kubectl delete svc httpd
+service "httpd" deleted
+
+controlplane ~ ➜  kubectl expose pod httpd --name=httpd --target-port=80  --port=80
+service/httpd exposed
+
+
+
+Single line creation of pod with expose port:--> 
+
+kubectl run httpd --image=httpd:alpine --port=80 --expose=true 
+kubectl get svc 
+kubectl describe svc httpd
+
+
+

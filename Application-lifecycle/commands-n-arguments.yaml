@@ -1,0 +1,155 @@
+
+commands and arguments in docker
+
+docker run ubuntu 
+docker ps 
+docker ps -a 
+
+why container is in exit state ?
+
+container only live of process is alive 
+
+docker run ubuntu [commands]
+docker run ubuntu sleep 5 
+
+conatiner exists after 5 sec of sleep 
+
+docker file:
+
+FROM: ubuntu
+ENTRYPOINT : ["sleep"]
+CMD: ["5"]
+
+
+///////////////
+docker run --name ubuntu-sleeper ubuntu-sleeper
+docker run --name ubuntu-sleeper ubuntu-sleeper 10
+
+pod-def.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ubuntu-sleeper-pod
+
+spec:
+  containers:
+    - name: ubuntu-sleeper
+      image: ubuntu-sleeper
+      command: ["sleep2.0"]
+      args: ["10"]
+    
+////////
+
+kubectl create -f pod-def.yaml 
+
+//////
+
+FROM python:3.6-alpine
+
+RUN pip install flask
+
+COPY . /opt/
+
+EXPOSE 8080
+
+WORKDIR /opt
+
+ENTRYPOINT ["python", "app.py"]
+
+
+which command is executed here:
+A:
+python app.py 
+
+
+//////
+
+FROM python:3.6-alpine
+
+RUN pip install flask
+
+COPY . /opt/
+
+EXPOSE 8080
+
+WORKDIR /opt
+
+ENTRYPOINT ["python", "app.py"]
+
+CMD ["--color", "red"]
+
+A:
+
+which command is executed:
+  python app.py --color red 
+
+
+Q:
+When the Pod defined in webapp-color-pod.yaml starts, which command will actually run inside the container?
+
+controlplane ~/webapp-color-2 ➜  cat webapp-color-pod.yaml 
+apiVersion: v1 
+kind: Pod 
+metadata:
+  name: webapp-green
+  labels:
+      name: webapp-green 
+spec:
+  containers:
+  - name: simple-webapp
+    image: kodekloud/webapp-color
+    command: ["--color","green"]
+
+A:
+command: ["--color","green"]
+
+Q:
+controlplane ~/webapp-color-3 ➜  cat Dockerfile 
+FROM python:3.6-alpine
+
+RUN pip install flask
+
+COPY . /opt/
+
+EXPOSE 8080
+
+WORKDIR /opt
+
+ENTRYPOINT ["python", "app.py"]
+
+CMD ["--color", "red"]
+
+controlplane ~/webapp-color-3 ➜  cat webapp-color-pod-2.yaml 
+apiVersion: v1 
+kind: Pod 
+metadata:
+  name: webapp-green
+  labels:
+      name: webapp-green 
+spec:
+  containers:
+  - name: simple-webapp
+    image: kodekloud/webapp-color
+    command: ["python", "app.py"]
+    args: ["--color", "pink"]
+
+controlplane ~/webapp-color-3 ➜  
+A:
+python app.py --color pink --> pod definition file command gets overide over the Docker file image command
+
+
+ENTRYPOINT point from the Dockerfile gets overide with command from pod-definition.yaml file
+and 
+CMD gets overide with args
+
+
+kubectl run webapp-green --image=kodekloud/webapp-color -- --color green 
+
+here:
+  -- <arg1> <arg2>
+or 
+  --command python app2.py -- <arg1> <arg2>
+
+
+

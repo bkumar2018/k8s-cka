@@ -1,0 +1,97 @@
+
+Taint -- is Node
+Tolerant --- is Pod
+
+
+
+Node1 Node2 Node3
+
+PodA PodB PodC 
+
+K8s Scheduller tries to place these pods to available Node's 
+
+Taint are set on Nodes 
+and 
+Tolerant are set on Pods 
+
+
+kubectl taint nodes node-name key=value:taint-effect
+  NoSchedule
+  PreferNoSchedule
+  NoExecute
+
+kubectl taint nodes node1 app = blue : NoSchedule
+
+kubectl describe node kubemaster | grep Taint
+
+
+controlplane ~ ➜  kubectl get nodes
+NAME           STATUS   ROLES           AGE     VERSION
+controlplane   Ready    control-plane   9m7s    v1.33.0
+node01         Ready    <none>          8m30s   v1.33.0
+
+
+controlplane ~ ➜  kubectl describe node node01 | grep Taint
+Taints:             <none>
+
+Q:
+Create a taint on node01 with key of spray value of mortein and effect of NoSchedule
+
+A:
+
+Key=spray
+Value=mortein
+effect=NoSchedule
+
+kubectl taint nodes node01 spray=mortein:NoSchedule
+
+kubectl describe node node01
+
+Q:
+
+kubectl run mosquito --image=nginx
+kubectl get pods
+
+kubectl describe pod mosquito
+
+Q: create pod name bee with the nginx
+whihc has a Toleration set to the taint mortein
+A:
+
+
+kubectl run bee --image=nginx --dry-run=client -o yaml
+
+kubectl run bee --image=nginx --dry-run=client -o yaml > bee.yaml
+
+cat bee.yaml
+
+vim bee.yaml 
+
+spec:
+  tolerations:
+  - key: "spray"
+    value: mortein
+    effect: NoSchedule
+    operator: equal
+  
+
+kubectl create -f bee.yaml
+kubectl get pods
+kubectl get pods --watch
+
+kubectl get pods -o wide
+
+
+kubectl describe node controlplane
+
+  Taints: node-role.k8s.io/master:NoSchedule
+
+
+Q: Remove Taint on controlplane, which currently has tha taint effect of NoSchedule
+A:
+kubectl taint node controlplane node-role.k8s.io/master:NoSchedule-    --> dash at end to remove taint on node
+kubectl describe node controlplane | grep taint
+
+
+
+

@@ -1,0 +1,71 @@
+
+root@controlplane ~ ➜  kubectl get priorityclass
+NAME                      VALUE        GLOBAL-DEFAULT   AGE   PREEMPTIONPOLICY
+system-cluster-critical   2000000000   false            12m   PreemptLowerPriority
+system-node-critical      2000001000   false            12m   PreemptLowerPriority
+
+
+root@controlplane ~ ✖ kubectl create priorityclass high-priority
+priorityclass.scheduling.k8s.io/high-priority created
+
+
+root@controlplane ~ ➜  kubectl get priorityclass high-priority
+NAME            VALUE   GLOBAL-DEFAULT   AGE   PREEMPTIONPOLICY
+high-priority   0       false            4s    PreemptLowerPriority
+
+
+root@controlplane ~ ➜  kubectl edit priorityclass high-priority
+error: priorityclasses.scheduling.k8s.io "high-priority" is invalid
+A copy of your changes has been stored to "/tmp/kubectl-edit-3883634430.yaml"
+error: Edit cancelled, no valid changes were saved.
+
+
+root@controlplane ~ ✖ kubectl create -f /tmp/kubectl-edit-3883634430.yaml
+Error from server (AlreadyExists): error when creating "/tmp/kubectl-edit-3883634430.yaml": priorityclasses.scheduling.k8s.io "high-priority" already exists
+
+
+
+root@controlplane ~ ✖ kubectl delete priorityclass high-priority
+priorityclass.scheduling.k8s.io "high-priority" deleted
+
+
+root@controlplane ~ ➜  kubectl create -f /tmp/kubectl-edit-3883634430.yaml
+priorityclass.scheduling.k8s.io/high-priority created
+
+
+
+vi low-priority.yaml
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: low-priority
+value: 1000
+globalDefault: false
+description: "This priority class is used for low-priority pods."
+
+
+kubectl apply -f low-priority.yaml
+
+kubectl get priorityclasses
+
+
+
+# low-prio-pod.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: low-prio-pod
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+  priorityClassName: low-priority
+
+
+  kubectl apply -f low-prio-pod.yaml
+
+root@controlplane ~ ➜  kubectl get pods
+NAME           READY   STATUS    RESTARTS   AGE
+low-prio-pod   1/1     Running   0          6s
+
+

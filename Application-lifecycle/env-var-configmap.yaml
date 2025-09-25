@@ -1,0 +1,124 @@
+
+
+ENV Value Types
+
+
+Pod-definition.yaml 
+
+///////////
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: simple-webapp
+spec:
+  container:
+  - name: simple-webapp 
+    image: simple-webapp
+    ports:
+      - containerPort: 8080
+    env:
+    - name: APP_COLOR
+      value: blue
+    - name: APP_MODE
+      value:  prod 
+
+///////////
+
+ConfigMap
+
+01 create configMap
+02 Inject into the Pod 
+
+/////
+
+
+ConfigMap:
+
+APP_COLOR: blue
+APP_MODE:prod 
+
+
+......................
+apiVersion: v1
+kind: Pod
+metadata:
+  name: simple-webapp
+spec:
+  container:
+  - name: simple-webapp 
+    image: simple-webapp
+    ports:
+      - containerPort: 8080
+    env:
+    - configMapRef:
+        name: app-config
+
+
+........
+apiVersion: v1
+kind: ConfigMap 
+metadata:
+  name: app-config 
+data:
+  APP_COLOR: blue
+  APP_MODE: prod
+
+...........
+kubectl create -f config-map.yaml
+kubectl get configmaps
+kubectl describe configmaps
+
+
+....inject configmap in pod ...
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: simple-webapp
+spec:
+  container:
+  - name: simple-webapp 
+    image: simple-webapp
+    ports:
+      - containerPort: 8080
+    envFrom:
+    - configMapRef:
+        name: app-config
+
+..........
+
+controlplane ~ ➜  k get configmaps
+NAME               DATA   AGE
+db-config          3      43s
+kube-root-ca.crt   1      12m
+
+k edit configmap db-config
+
+
+apiVersion: v1
+data:
+  DB_HOST: SQL01.example.com
+  DB_NAME: SQL01
+  DB_PORT: "3306"
+kind: ConfigMap
+metadata:
+  name: webapp-config-map
+  namespace: default
+
+
+kubectl create configmap  webapp-config-map --from-literal=APP_COLOR=darkblue --from-literal=APP_OTHER=disregard
+
+controlplane ~ ➜  kubectl create configmap  webapp-config-map --from-literal=APP_COLOR=darkblue --from-literal=APP_OTHER=disregard
+configmap/webapp-config-map created
+
+controlplane ~ ➜  k get configmaps
+NAME                DATA   AGE
+db-config           3      8m4s
+kube-root-ca.crt    1      19m
+webapp-config-map   2      83s
+
+
+kubectl replace --force -f /tmp/kubectl-edit-312131313.yaml 
+
+k describe cm db-config 

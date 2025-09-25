@@ -1,0 +1,225 @@
+
+Restore and Backup methodologies
+
+
+Backup:
+
+Resource Configuration. --  etcd cluster -- Persistent storage volume
+
+store in github all Configuration all yaml's file
+
+imperative [with cmd]  or declarative [using yaml]
+
+# to get all kube-apiserver 
+k get all -all-namespaces -o yaml > all-deploy-services.yaml 
+
+get all pod and namespaces and store in yaml file
+
+Tools :
+VELERO can do for us -- back up k8s apis 
+
+etcd cluster : backup 
+etcd.service 
+
+etcdctl  snapshot save snapshot.db 
+ls 
+snapshot.db
+systemctl stop kube-apiserver
+
+etcdctl  snapshot restore snapshot.db --data-dir /var/lib/etcd-from-backup 
+at new directories
+
+etcd.service 
+
+systemctl daemon-reload
+systemctl restart etcd
+
+systemctl start kube-apiserver
+
+..................
+etcdctl is a command line client for etcd.
+etcdctl version
+
+Backing Up ETCD
+Using etcdctl (Snapshot-based Backup)
+To take a snapshot from a running etcd server, use:
+
+ETCDCTL_API=3 etcdctl \ --endpoints=https://127.0.0.1:2379 \ --cacert=/etc/kubernetes/pki/etcd/ca.crt \ --cert=/etc/kubernetes/pki/etcd/server.crt \ --key=/etc/kubernetes/pki/etcd/server.key \ snapshot save /backup/etcd-snapshot.db
+
+Required Options
+--endpoints points to the etcd server (default: localhost:2379)
+--cacert path to the CA cert
+--cert path to the client cert
+--key path to the client key
+
+...............
+
+Restoring ETCD
+Using etcdutl
+To restore a snapshot to a new data directory:
+
+etcdutl snapshot restore /backup/etcd-snapshot.db \ --data-dir /var/lib/etcd-restored
+
+To use a backup made with etcdutl backup, simply copy the backup contents back into /var/lib/etcd and restart etcd.
+
+
+Notes
+etcdctl snapshot save is used for creating .db snapshots from live etcd clusters.
+etcdctl snapshot status provides metadata information about the snapshot file.
+etcdutl snapshot restore is used to restore a .db snapshot file.
+etcdutl backup performs a raw file-level copy of etcd’s data and WAL files without needing etcd to be running.
+
+//////////
+Q:
+We have a working Kubernetes cluster with a set of web applications running. Let us first explore the setup.
+How many deployments exist in the cluster in default namespace?
+
+A:
+Two application running 'blue' and 'red'
+
+controlplane ~ ➜  k get deploy
+NAME   READY   UP-TO-DATE   AVAILABLE   AGE
+blue   3/3     3            3           25s
+red    2/2     2            2           25s
+
+
+Q:
+What is the version of ETCD running on the cluster?
+
+Check the ETCD Pod or Process
+
+
+A:
+controlplane ~ ➜  k -n kube-system get pod
+NAME                                   READY   STATUS    RESTARTS   AGE
+coredns-7484cd47db-9fdc2               1/1     Running   0          12m
+coredns-7484cd47db-knjz9               1/1     Running   0          12m
+etcd-controlplane                      1/1     Running   0          12m
+kube-apiserver-controlplane            1/1     Running   0          12m
+kube-controller-manager-controlplane   1/1     Running   0          12m
+kube-proxy-8zqwk                       1/1     Running   0          12m
+kube-scheduler-controlplane            1/1     Running   0          12m
+
+
+decribe etcd-controlplane pod from above pods :
+
+k -n kube-system describe pod etcd-controlplane 
+
+controlplane ~ ➜  k -n kube-system describe pod etcd-controlplane  | grep Image
+    Image:         registry.k8s.io/etcd:3.5.21-0
+    Image ID:      registry.k8s.io/etcd@sha256:d58c035df557080a27387d687092e3fc2b64c6d0e3162dc51453a115f847d121
+Q:
+At what address can you reach the ETCD cluster from the controlplane node?
+Check the ETCD Service configuration in the ETCD POD
+
+A:
+controlplane ~ ✖ k -n kube-system describe pod etcd-controlplane  | grep 2379
+Annotations:          kubeadm.kubernetes.io/etcd.advertise-client-urls: https://192.168.65.237:2379
+      --advertise-client-urls=https://192.168.65.237:2379
+      --listen-client-urls=https://127.0.0.1:2379,https://192.168.65.237:2379
+
+root@controlplane:~# kubectl -n kube-system describe pod etcd-controlplane | grep '\--listen-client-urls'
+      --listen-client-urls=https://127.0.0.1:2379,https://10.2.43.11:2379
+
+controlplane ~ ➜  kubectl -n kube-system describe pod etcd-controlplane | grep '\--listen-client-urls'
+      --listen-client-urls=https://127.0.0.1:2379,https://10.2.43.11:2379
+      --listen-client-urls=https://127.0.0.1:2379,https://192.168.65.237:2379
+-bash: --listen-client-urls=https://127.0.0.1:2379,https://10.2.43.11:2379: No such file or directory
+
+
+Q:
+Where is the ETCD server certificate file located?
+
+Note this path down as you will need to use it later
+
+A:
+
+controlplane ~ ✖ kubectl -n kube-system describe pod etcd-controlplane | grep '\--cert-file'
+      --cert-file=/etc/kubernetes/pki/etcd/server.crt
+
+controlplane ~ ➜  kubectl -n kube-system describe pod etcd-controlplane | grep '\--trusted-ca-file'
+      --trusted-ca-file=/etc/kubernetes/pki/etcd/ca.crt
+
+Q:
+The controlplane node in our cluster is planned for a regular maintenance reboot tonight. While we do not anticipate anything to go wrong, we are required to take the necessary backups. Take a snapshot of the ETCD database using the built-in snapshot functionality. Store the backup file at location /opt/snapshot-pre-boot.db
+
+A:
+
+Using etcdctl command, create a snapshot for the etcd database in /opt/snapshot-pre-boot.db:
+
+etcdctl --endpoints=https://[127.0.0.1]:2379 \
+--cacert=/etc/kubernetes/pki/etcd/ca.crt \
+--cert=/etc/kubernetes/pki/etcd/server.crt \
+--key=/etc/kubernetes/pki/etcd/server.key \
+snapshot save /opt/snapshot-pre-boot.db
+
+
+controlplane ~ ➜  ls /opt/
+cni  containerd  kubeadm-config.yaml  snapshot-pre-boot.db
+
+
+Q:
+Wake up! We have a conference call! After the reboot the master nodes came back online, but none of our applications are accessible. Check the status of the applications on the cluster. What's wrong?
+Pod / Deployment / Service are not available 
+
+Q:
+Luckily we took a backup. Restore the original state of the cluster using the backup file.
+
+A:
+Restore the etcd to a new directory from the snapshot by using the etcdctl snapshot restore command. Once the directory is restored, update the ETCD configuration to use the restored directory.
+
+First, using the etcdutl command, restore the snapshot:
+
+etcdutl snapshot restore /opt/snapshot-pre-boot.db --data-dir /var/lib/etcd-from-backup
+
+controlplane ~ ➜  etcdutl snapshot restore /opt/snapshot-pre-boot.db --data-dir /var/lib/etcd-from-backup
+2025-09-20T07:37:22Z    info    snapshot/v3_snapshot.go:265     restoring snapshot       {"path": "/opt/snapshot-pre-boot.db", "wal-dir": "/var/lib/etcd-from-backup/member/wal", "data-dir": "/var/lib/etcd-from-backup", "snap-dir": "/var/lib/etcd-from-backup/member/snap", "initial-memory-map-size": 10737418240}
+2025-09-20T07:37:22Z    info    membership/store.go:141 Trimming membership information from the backend...
+2025-09-20T07:37:22Z    info    membership/cluster.go:421       added member    {"cluster-id": "cdf818194e3a8c32", "local-member-id": "0", "added-peer-id": "8e9e05c52164694d", "added-peer-peer-urls": ["http://localhost:2380"]}
+2025-09-20T07:37:22Z    info    snapshot/v3_snapshot.go:293     restored snapshot{"path": "/opt/snapshot-pre-boot.db", "wal-dir": "/var/lib/etcd-from-backup/member/wal", "data-dir": "/var/lib/etcd-from-backup", "snap-dir": "/var/lib/etcd-from-backup/member/snap", "initial-memory-map-size": 10737418240}
+
+
+Next, we need to update the /etc/kubernetes/manifests/etcd.yaml to point to the newly restored directory, which is /var/lib/etcd-from-backup. The only change that we need to make to the YAML file, is to change the hostPath for the volume called etcd-data from old directory /var/lib/etcd to the new directory /var/lib/etcd-from-backup:
+
+controlplane ~ ➜  ls /etc/kubernetes/manifests/
+etcd.yaml            kube-controller-manager.yaml
+kube-apiserver.yaml  kube-scheduler.yaml
+
+
+  ...
+  volumes:
+  - hostPath:
+      path: /var/lib/etcd-from-backup # Newly restored backup directory
+      type: DirectoryOrCreate
+    name: etcd-data
+
+
+    With this change, /var/lib/etcd on the container points to /var/lib/etcd-from-backup on the controlplane.
+
+  When this file is updated, the ETCD pod is automatically re-created as this is a static pod placed under the /etc/kubernetes/manifests directory. This may take a few minutes, and it is expected that kube-controller-manager and kube-scheduler will also restart. To check the containers being restarted:
+
+watch crictl ps 
+
+Once the updated etcd container and the kube-apiserver containers are up, you can verify that the missing deployments (2 deployments) and services (3 services) are restored again:
+
+k get deploy, svc 
+
+controlplane ~ ➜  k get deploy,svc
+NAME                   READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/blue   3/3     3            3           22m
+deployment.apps/red    2/2     2            2           22m
+
+NAME                   TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)        AGE
+service/blue-service   NodePort    172.20.206.207   <none>        80:30082/TCP   22m
+service/kubernetes     ClusterIP   172.20.0.1       <none>        443/TCP        32m
+service/red-service    NodePort    172.20.17.42     <none>        80:30080/TCP   22m
+
+
+
+TIP for exam :
+
+Here's a quick tip. In the exam, you won't know if what you did is correct or not, as in the practice tests in this course.
+
+You must verify your work yourself. For example, if the question is to create a pod with a specific image, you must run the kubectl describe pod command to verify the pod is created with the correct name and correct image.
+
+link - https://www.youtube.com/watch?v=qRPNuT080Hk

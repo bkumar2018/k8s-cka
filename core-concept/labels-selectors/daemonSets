@@ -1,0 +1,162 @@
+
+DaemonSets 
+make sure to have one app on each nodes 
+usecase - newtorking 
+    kube-proxy is present in all nodes similar way it is
+    required to install calico on all pod
+
+Yaml is same as ReplicaSet
+
+but kind here is : DaemonSet
+////
+
+apiVersion: v1
+kind: DaemonSet
+metadata:
+    name: monitoring-daemon
+    labels:
+        app: monitoring-agent
+
+spec:
+    template:  ---> from Pod 
+
+        metadata:
+        labels:
+            app: monitoring-agent
+
+        spec:
+        containers:
+        - name: monitoring-agent
+          image: monitoring-agent        
+
+////
+
+kubectl create -f daemon-set-definition.yaml 
+kubectl get DaemonSets
+kubectl describe daemonsets <name>
+
+
+Set NodeName property till v1.12 
+From v1.12 -- use NodeAffinity and 
+
+How to get pod is static pod or not?
+
+1) static pod have node name append in the end.
+2) kubectl  get pod <pdoname> -n kube-system
+
+kubectl  get pod <pdoname> -n kube-system -o yaml | grep ownerReferences 
+ownerReferences kind is Pod -- it mean its Static Pod
+
+kubectl get pods -A 
+
+
+
+
+
+ontrolplane ~ ➜  kubectl get daemonsets --all-namespaces
+NAMESPACE      NAME              DESIRED   CURRENT   READY   UP-TO-DATE   AVAILABLE   NODE SELECTOR            AGE
+kube-flannel   kube-flannel-ds   1         1         1       1            1           <none>                   26m
+kube-system    kube-proxy        1         1         1       1            1           kubernetes.io/os=linux   26m
+
+kubectl get daemonsets -A 
+
+
+controlplane ~ ➜  kubectl describe daemonsets -n kube-flannel | grep Image
+    Image:      docker.io/flannel/flannel-cni-plugin:v1.2.0
+    Image:      docker.io/flannel/flannel:v0.23.0
+    Image:      docker.io/flannel/flannel:v0.23.0
+
+
+kubectl describe ds -n kube-flannel | grep Image
+
+
+using dry-run option
+
+kubectl create deployment elasticsearch -n kube-system --image=<> --dry-run=client -o yaml  > fluentd.yaml
+
+vim fluentd.yaml
+
+remove replicas
+
+
+kubectl create -f fluentd.yaml 
+kubectl get ds -n kube-system 
+
+Create a pod definition file in the manifests folder. To do this, run the command:
+kubectl run --restart=Never --image=busybox static-busybox --dry-run=client -o yaml --command -- sleep 1000 > /etc/kubernetes/manifests/static-busybox.yaml
+
+controlplane ~ ➜  cp static-busybox.yaml /etc/kubernetes/manifests/
+
+controlplane ~ ➜  
+
+controlplane ~ ➜  kubectl get pods
+NAME                          READY   STATUS    RESTARTS   AGE
+static-busybox-controlplane   1/1     Running   0          9s
+
+controlplane ~ ➜  vim /etc/kubernetes/manifests/static-busybox.yaml 
+
+controlplane ~ ➜  
+
+controlplane ~ ➜  kubectl get pods
+NAME                          READY   STATUS    RESTARTS   AGE
+static-busybox-controlplane   1/1     Running   0          78s
+
+
+controlplane ~ ➜  kubectl get nodes 
+NAME           STATUS   ROLES           AGE   VERSION
+controlplane   Ready    control-plane   45m   v1.33.0
+node01         Ready    <none>          44m   v1.33.0
+
+to get IP use below command
+
+controlplane ~ ➜  kubectl get nodes -o wide
+NAME           STATUS   ROLES           AGE   VERSION   INTERNAL-IP       EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION    CONTAINER-RUNTIME
+controlplane   Ready    control-plane   45m   v1.33.0   192.168.138.200   <none>        Ubuntu 22.04.5 LTS   5.15.0-1083-gcp   containerd://1.6.26
+node01         Ready    <none>          44m   v1.33.0   192.168.44.38     <none>        Ubuntu 22.04.5 LTS   5.15.0-1083-gcp   containerd://1.6.26
+
+
+
+
+how to figure the path name:
+
+
+cat /var/lib 
+
+cat /var/lib/kubelet 
+cat /var/lib/kubelet/config.ymal | grep staticPodPath 
+/etc/kubernetes/manifests
+
+
+kubectl run static-busybox --image=busybox --dry-run=client -o yaml --command -- sleep 1000 > somefile.ymal 
+
+kubectl delete pod static-greenbox-node01 
+kubectl get pods 
+
+so we need to find manifest file and delete it 
+
+ls /etc/kubernetes/manifest
+
+name of static pod is append with name of node as node01 
+
+so we need to ssh to node01 
+
+kubectl get nodes -o wide --> get ip address of node01 
+ssh to node01 
+ssh 10.38.102.8 
+ls /etc/kubernetes/manifest --> no file here 
+
+kubelet config -- check ?
+
+cat /var/lib/kubelet/config.yaml  | grep staticPodPath 
+/etc/just-to-meess-wit-you 
+
+rm greenbox.yaml from there
+
+exit 
+
+get all events 
+kubectl get events -o wide 
+
+kubectl logs nameofpod --namespace=kube-system
+
+

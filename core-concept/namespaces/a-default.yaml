@@ -1,0 +1,258 @@
+
+
+Namesapce
+  is house where all the different k8s objects resides
+
+by default there is namespace with name 'default' created by k8s when cluster is first created.
+
+
+/////
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dev
+
+/////
+
+kubectl create -f namespace-dev.yaml
+Or 
+kubectl creata namespace dev 
+
+
+
+other namespace: automatically present
+kube-system
+kube-public
+
+
+we can create new namespace for dev and prod Environment
+dev
+prod
+
+
+for default namespace db-service, will call using cmd:
+
+  mysql.connect("db-service")
+
+and for dev namespace db-service 
+
+  mysql.connect("db-service.dev.svc.cluster.local")
+
+DNS : automatically create with below formatt
+  "db-service.dev.svc.cluster.local"
+
+
+kubectl get pods
+kubectl get pods -ns kube-system
+
+kubectl create -f pod-def.yaml                  -- > create in default namespace
+
+kubectl create -f pod-def.yaml --namespace dev    --> create in dev namespace
+
+
+we can use below yaml file and use below command without namespace
+kubectl create -f pod-def.yaml
+
+
+//////////
+
+apiVersion: v1
+kind: Pod
+metadata: 
+  name: myapp-pod
+  namespace: dev
+
+  labels:
+    app: myapp
+    type: front-end
+
+spec:
+  containers:
+  - name: nginx-container
+    image: nginx
+  
+////////////
+
+
+
+
+change the defaul namespace context to some other namespace like 'dev'
+
+use cmd:
+
+kubectl config set-context $(kubectl config currrent-context) --namespace=dev 
+
+now after above cmd is set, if you use 'kubectl get pods' command then pod from dev namespace will show up
+
+for defaul and other namespace you have explicitly give the namespace name in command like below:
+
+kubectl get pods --namespace=default
+kubectl get pods --namespace=prod
+
+
+To view pods in all the namespaces:
+  kubectl get pods --all-namespaces
+
+/////
+
+Resource Quota:
+
+To limits resource in namespace, create a resource-quota 
+
+/////
+
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: compute-quota
+  namespace: dev
+
+spec:
+  hard:
+    pods: "10"
+    requests.cpu: "4"
+    requests.memory: 5Gi
+    limits.cpu: "10"
+    limits.memory: 10Gi
+
+/////
+
+
+kubectl create -f compute-quota.yaml 
+
+
+
+
+some command:
+
+
+controlplane ~ ➜  kubectl get ns
+NAME              STATUS   AGE
+default           Active   12m
+dev               Active   25s
+finance           Active   25s
+kube-node-lease   Active   12m
+kube-public       Active   12m
+kube-system       Active   12m
+manufacturing     Active   25s
+marketing         Active   25s
+prod              Active   25s
+research          Active   25s
+
+
+How many pods exist in the research namespace?
+
+controlplane ~ ➜  kubectl get pods --namespace=research
+NAME    READY   STATUS             RESTARTS      AGE
+dna-1   0/1     CrashLoopBackOff   3 (52s ago)   92s
+dna-2   0/1     CrashLoopBackOff   3 (49s ago)   92s
+
+
+Q: Create a POD in the finance namespace.
+name: redis 
+image: redis 
+
+A:
+.............
+controlplane ~ ➜  cat redis.yaml 
+apiVersion: v1
+kind: Pod
+metadata:
+  name: redis-app
+  namespace: finance
+spec:
+  containers:
+    - name: redis
+      image: redis
+.............
+
+controlplane ~ ➜  kubectl create -f redis.yaml 
+pod/redis-app created
+
+controlplane ~ ✖ kubectl get pods --namespace finance
+NAME        READY   STATUS    RESTARTS   AGE
+payroll     1/1     Running   0          4m45s
+redis-app   1/1     Running   0          25s
+
+
+
+.............
+controlplane ~ ➜  cat redis.yaml 
+apiVersion: v1
+kind: Pod
+metadata:
+  name: redis
+  namespace: finance
+spec:
+  containers:
+    - name: redis
+      image: redis
+.............
+
+controlplane ~ ➜  kubectl get pods --namespace=finance
+NAME        READY   STATUS    RESTARTS   AGE
+payroll     1/1     Running   0          7m
+redis       1/1     Running   0          5s
+redis-app   1/1     Running   0          2m40s
+
+
+
+controlplane ~ ➜  kubectl get pods --all-namespaces
+NAMESPACE       NAME                                      READY   STATUS             RESTARTS        AGE
+dev             redis-db                                  1/1     Running            0               8m19s
+finance         payroll                                   1/1     Running            0               8m19s
+finance         redis                                     1/1     Running            0               84s
+finance         redis-app                                 1/1     Running            0               3m59s
+kube-system     coredns-697968c856-jj5xd                  1/1     Running            0               19m
+kube-system     helm-install-traefik-crd-b5htr            0/1     Completed          0               19m
+kube-system     helm-install-traefik-lf9rs                0/1     Completed          2               19m
+kube-system     local-path-provisioner-774c6665dc-jvw64   1/1     Running            0               19m
+kube-system     metrics-server-6f4c6675d5-8fjzd           1/1     Running            0               19m
+kube-system     svclb-traefik-99b8825e-h4qg7              2/2     Running            0               19m
+kube-system     traefik-c98fdf6fb-m6rxg                   1/1     Running            0               19m
+manufacturing   red-app                                   1/1     Running            0               8m19s
+marketing       blue                                      1/1     Running            0               8m19s
+marketing       redis-db                                  1/1     Running            0               8m19s
+research        dna-1                                     0/1     CrashLoopBackOff   6 (2m30s ago)   8m19s
+research        dna-2                                     0/1     CrashLoopBackOff   6 (2m31s ago)   8m19s
+
+
+Q: Which namespace has the blue pod in it?
+A: marketing namespace
+
+
+
+controlplane ~ ➜  kubectl get all --namespace=marketing
+NAME           READY   STATUS    RESTARTS   AGE
+pod/blue       1/1     Running   0          11m
+pod/redis-db   1/1     Running   0          11m
+
+NAME                   TYPE       CLUSTER-IP     EXTERNAL-IP   PORT(S)          AGE
+service/blue-service   NodePort   10.43.67.184   <none>        8080:30082/TCP   11m
+service/db-service     NodePort   10.43.10.221   <none>        6379:32526/TCP   11m
+
+Q: What DNS name should the Blue application use to access the database db-service in its own namespace - marketing?
+You can try it in the web application UI. Use port 6379.
+
+A:
+db-service 
+6379
+
+
+
+controlplane ~ ➜  kubectl get all --namespace=dev
+NAME           READY   STATUS    RESTARTS   AGE
+pod/redis-db   1/1     Running   0          14m
+
+NAME                 TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)    AGE
+service/db-service   ClusterIP   10.43.63.192   <none>        6379/TCP   14m
+
+Q: What DNS name should the Blue application use to access the database db-service in the dev namespace?
+You can try it in the web application UI. Use port 6379
+
+A:
+db-service 
+6379
+
+DNS name - > db-service.dev.svc.cluster.local
+

@@ -1,0 +1,149 @@
+
+
+
+To ensure 
+
+
+
+pod-def.yaml
+
+.............
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp-pod
+spec:
+  containers:
+  - name: data-processor
+    image: data-processor
+  
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringException:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key : size 
+            operator: In   / or NotIn  / Exists
+            values:
+            - Large / or Small
+    
+..........
+
+
+
+Node Affinity Types:
+
+requiredDuringSchedulingIgnoredDuringException
+
+preferredDuringSchedulingIgnoreDuringExecution
+........
+
+DuringScheduling    DuringExecution
+
+................
+
+
+kubectl describe node node01 | grep Labels 
+
+kubectl label --help
+
+kubectl label node node01 color=blue
+kubectl describe node node1 | grep color
+
+kubectl create deployment blue --image=nginx --replicas=3
+kubectl describe node node01 | grep Taints
+
+kubectl describe node controlplane | grep Taints
+
+kubectl edit deployment blue 
+kubectl get pods -o wide 
+
+kubectl create deployment red --image=nginx --replicas=2 --dry-run=client -o yaml
+
+kubectl create deployment red --image=nginx --replicas=2 --dry-run=client -o yaml > red.yaml
+
+chnage the spec in red.yamlpolinux/stress
+
+add affinity section take help from k8s docs 
+key:
+operator: Exists
+
+kubectl get pods -o wide 
+
+use taint / tolerations and node affinity -- for better placement of pod with nodes
+
+
+Resorce Request
+------------------
+kube-Scheduller decide which pod to place on which nodes.
+
+Pod need to have cpu and memnory resorces and will get allocate to nodes which have sufficent cpu and memory.
+
+apiVersion: v1
+kind: Pod 
+metadata:
+  name: simple-webapp
+  labels:
+    name: simple-webapp 
+spec:
+  containers:
+  - name: simplw-webapp
+    image: simple-webapp
+    ports:
+      - containerPort: 8080
+    
+    resources:
+      requests:
+        memory: "4Gi"
+        cpu: 2
+      limits:
+        memnory: "2Gi"
+        cpu: 2
+
+..........
+
+
+polinux/stress
+
+
+
+kubectl edit pod elephant
+kubectl replace --force -f 
+kubectl replace --force -f /tmp/kubectl-edit-12313123.yaml
+This command delete pod and replaced the pod 
+
+kubectl get pods 
+kubectl describe pod elephant
+
+controlplane ~ ➜  kubectl edit pod elephant 
+error: pods "elephant" is invalid
+A copy of your changes has been stored to "/tmp/kubectl-edit-1293816969.yaml"
+error: Edit cancelled, no valid changes were saved.
+
+controlplane ~ ✖ ls /tmp/kubectl-edit-1293816969.yaml
+/tmp/kubectl-edit-1293816969.yaml
+
+controlplane ~ ✖ kubectl replace --force -f /tmp/kubectl-edit-1293816969.yaml
+pod "elephant" deleted
+pod/elephant replaced
+
+controlplane ~ ➜  kubectl get pods
+NAME       READY   STATUS    RESTARTS   AGE
+elephant   1/1     Running   0          43s
+
+controlplane ~ ➜  kubectl delete pod elephant
+pod "elephant" deleted
+
+57400 st 
+33500 lt
+------
+90900
+------
+After 31st January 2018 
+
+After 31st January 2018
+
+
+On or after 23rd July 2024
+
+On or after 23rd July 2024

@@ -1,0 +1,573 @@
+
+
+
+kubeadm upgrade plan
+kubeadm upgrade apply
+
+1st Master node is upgraded then worker nodes
+
+
+apt-get upgrade -y kubeadm=1.12.0-00
+
+kubeadm upgrade apply v1.12.0
+
+kubectl get nodes
+
+apt-get upgrade kubelet=1.12.0-00
+
+systemctl restart kubelet 
+
+kubectl get nodes
+...
+kubectl drain node-1
+apt-get upgrade -y kubeadm=1.12.0-00
+kubeadm upgrade node config --kubelet-version v1.12.0
+systemctl restart kubelet
+
+kubectl uncordon node-1
+.....................................
+
+controlplane ~ ➜   k get nodes 
+NAME           STATUS   ROLES           AGE   VERSION
+controlplane   Ready    control-plane   52m   v1.32.0
+node01         Ready    <none>          52m   v1.32.0
+
+
+Q:
+    How many nodes can host workloads in this cluster?
+
+Inspect the applications and taints set on the nodes.
+
+Check the taints on both controlplane and node01. If none exists, then both nodes can host workloads.
+A:
+
+    controlplane ~ ✖ k describe node controlplane | grep Taints:
+Taints:             <none>
+
+2
+
+Q:
+How many applications are hosted on the cluster?
+
+Count the number of deployments in the default namespace.
+
+A:
+
+controlplane ~ ➜  k get deploy
+NAME   READY   UP-TO-DATE   AVAILABLE   AGE
+blue   5/5     5            5           10m
+
+
+controlplane ~ ➜  k get pods
+NAME                    READY   STATUS    RESTARTS   AGE
+blue-69968556cc-cjqnr   1/1     Running   0          10m
+blue-69968556cc-n6tqz   1/1     Running   0          10m
+blue-69968556cc-rnk9f   1/1     Running   0          10m
+blue-69968556cc-rzkn7   1/1     Running   0          10m
+blue-69968556cc-s9p9f   1/1     Running   0          10m
+
+controlplane ~ ➜  k get pods -o wide
+NAME                    READY   STATUS    RESTARTS   AGE   IP           NODE           NOMINATED NODE   READINESS GATES
+blue-69968556cc-cjqnr   1/1     Running   0          10m   172.17.0.4   controlplane   <none>           <none>
+blue-69968556cc-n6tqz   1/1     Running   0          10m   172.17.0.5   controlplane   <none>           <none>
+blue-69968556cc-rnk9f   1/1     Running   0          10m   172.17.1.2   node01         <none>           <none>
+blue-69968556cc-rzkn7   1/1     Running   0          10m   172.17.1.3   node01         <none>           <none>
+blue-69968556cc-s9p9f   1/1     Running   0          10m   172.17.1.4   node01         <none>           <none>
+
+
+Q:
+    You are tasked to upgrade the cluster. Users accessing the applications must not be impacted, and you cannot provision new VMs. What strategy would you use to upgrade the cluster?
+A:
+    Upgrade one node at a time
+
+Q:
+    What is the latest version available for an upgrade with the current version of the kubeadm tool installed?
+
+Use the kubeadm tool
+
+A:
+
+    controlplane ~ ➜  kubeadm upgrade plan
+[preflight] Running pre-flight checks.
+[upgrade/config] Reading configuration from the "kubeadm-config" ConfigMap in namespace "kube-system"...
+[upgrade/config] Use 'kubeadm init phase upload-config --config your-config.yaml' to re-upload it.
+[upgrade] Running cluster health checks
+
+[upgrade] Fetching available versions to upgrade to
+[upgrade/versions] Cluster version: 1.32.0
+[upgrade/versions] kubeadm version: v1.32.0
+I0919 04:16:48.352458   31864 version.go:261] remote version is much newer: v1.34.1; falling back to: stable-1.32
+[upgrade/versions] Target version: v1.32.9
+[upgrade/versions] Latest version in the v1.32 series: v1.32.9
+
+Components that must be upgraded manually after you have upgraded the control plane with 'kubeadm upgrade apply':
+COMPONENT   NODE           CURRENT   TARGET
+kubelet     controlplane   v1.32.0   v1.32.9
+kubelet     node01         v1.32.0   v1.32.9
+
+Upgrade to the latest version in the v1.32 series:
+
+COMPONENT                 NODE           CURRENT    TARGET
+kube-apiserver            controlplane   v1.32.0    v1.32.9
+kube-controller-manager   controlplane   v1.32.0    v1.32.9
+kube-scheduler            controlplane   v1.32.0    v1.32.9
+kube-proxy                               1.32.0     v1.32.9
+CoreDNS                                  v1.10.1    v1.11.3
+etcd                      controlplane   3.5.16-0   3.5.16-0
+
+You can now apply the upgrade by executing the following command:
+
+        kubeadm upgrade apply v1.32.9
+
+Note: Before you can perform this upgrade, you have to update kubeadm to v1.32.9.
+
+_____________________________________________________________________
+
+
+The table below shows the current state of component configs as understood by this version of kubeadm.
+Configs that have a "yes" mark in the "MANUAL UPGRADE REQUIRED" column require manual config upgrade or
+resetting to kubeadm defaults before a successful upgrade can be performed. The version to manually
+upgrade to is denoted in the "PREFERRED VERSION" column.
+
+API GROUP                 CURRENT VERSION   PREFERRED VERSION   MANUAL UPGRADE REQUIRED
+kubeproxy.config.k8s.io   v1alpha1          v1alpha1            no
+kubelet.config.k8s.io     v1beta1           v1beta1             no
+_____________________________________________________________________
+
+A: kubeadm upgrade apply v1.32.9
+
+
+
+Q:
+    We will be upgrading the controlplane node first. Drain the controlplane node of workloads and mark it UnSchedulable
+
+A:
+
+    controlplane ~ ✖ k drain controlplane
+node/controlplane cordoned
+error: unable to drain node "controlplane" due to error: cannot delete DaemonSet-managed Pods (use --ignore-daemonsets to ignore): kube-flannel/kube-flannel-ds-sqb8j, kube-system/kube-proxy-cmf52, continuing command...
+There are pending nodes to be drained:
+ controlplane
+cannot delete DaemonSet-managed Pods (use --ignore-daemonsets to ignore): kube-flannel/kube-flannel-ds-sqb8j, kube-system/kube-proxy-cmf52
+
+controlplane ~ ✖ k drain controlplane --ignore-daemonsets
+node/controlplane already cordoned
+Warning: ignoring DaemonSet-managed Pods: kube-flannel/kube-flannel-ds-sqb8j, kube-system/kube-proxy-cmf52
+evicting pod kube-system/coredns-7484cd47db-wmjx4
+evicting pod default/blue-69968556cc-n6tqz
+evicting pod kube-system/coredns-7484cd47db-s7c67
+evicting pod default/blue-69968556cc-cjqnr
+pod/blue-69968556cc-cjqnr evicted
+pod/blue-69968556cc-n6tqz evicted
+pod/coredns-7484cd47db-wmjx4 evicted
+pod/coredns-7484cd47db-s7c67 evicted
+node/controlplane drained
+
+
+controlplane ~ ➜  k get nodes
+NAME           STATUS                     ROLES           AGE   VERSION
+controlplane   Ready,SchedulingDisabled   control-plane   63m   v1.32.0
+node01         Ready                      <none>          62m   v1.32.0
+
+
+See, controlplane status is marked SchedulingDisabled
+
+Q:
+Upgrade the controlplane components to exact version v1.33.0
+
+Upgrade the kubeadm tool (if not already), then the controlplane components, and finally the kubelet. Practice referring to the Kubernetes documentation page.
+
+Make sure that the correct version of kubeadm is installed and then proceed to upgrade the controlplane node. Once this is done, upgrade the kubelet on the node.
+
+A:
+
+    controlplane ~ ➜  kubeadm version
+kubeadm version: &version.Info{Major:"1", Minor:"32", GitVersion:"v1.32.0", GitCommit:"70d3cc986aa8221cd1dfb1121852688902d3bf53", GitTreeState:"clean", BuildDate:"2024-12-11T18:04:20Z", GoVersion:"go1.23.3", Compiler:"gc", Platform:"linux/amd64"}
+
+
+controlplane ~ ➜  cat /etc/apt/sources.list.d/kubernetes.list
+deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.33/deb/ 
+
+
+controlplane ~ ➜  apt update
+Hit:2 https://download.docker.com/linux/ubuntu jammy InRelease                  
+Get:1 https://prod-cdn.packages.k8s.io/repositories/isv:/kubernetes:/core:/stable:/v1.33/deb  InRelease [1,186 B]
+Get:3 https://prod-cdn.packages.k8s.io/repositories/isv:/kubernetes:/core:/stable:/v1.33/deb  Packages [8,840 B]
+Hit:4 http://security.ubuntu.com/ubuntu jammy-security InRelease                
+Hit:5 http://archive.ubuntu.com/ubuntu jammy InRelease                      
+Hit:6 http://archive.ubuntu.com/ubuntu jammy-updates InRelease
+Hit:7 http://archive.ubuntu.com/ubuntu jammy-backports InRelease
+Fetched 10.0 kB in 1s (15.1 kB/s)
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+82 packages can be upgraded. Run 'apt list --upgradable' to see them.
+
+controlplane ~ ➜  apt-cache madison kubeadm
+   kubeadm | 1.33.5-1.1 | https://pkgs.k8s.io/core:/stable:/v1.33/deb  Packages
+   kubeadm | 1.33.4-1.1 | https://pkgs.k8s.io/core:/stable:/v1.33/deb  Packages
+   kubeadm | 1.33.3-1.1 | https://pkgs.k8s.io/core:/stable:/v1.33/deb  Packages
+   kubeadm | 1.33.2-1.1 | https://pkgs.k8s.io/core:/stable:/v1.33/deb  Packages
+   kubeadm | 1.33.1-1.1 | https://pkgs.k8s.io/core:/stable:/v1.33/deb  Packages
+   kubeadm | 1.33.0-1.1 | https://pkgs.k8s.io/core:/stable:/v1.33/deb  Packages
+
+
+controlplane ~ ➜  apt-get install kubeadm=1.33.0-1.1
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+The following packages will be upgraded:
+  kubeadm
+1 upgraded, 0 newly installed, 0 to remove and 81 not upgraded.
+Need to get 12.7 MB of archives.
+After this operation, 3,592 kB of additional disk space will be used.
+Get:1 https://prod-cdn.packages.k8s.io/repositories/isv:/kubernetes:/core:/stable:/v1.33/deb  kubeadm 1.33.0-1.1 [12.7 MB]
+Fetched 12.7 MB in 0s (36.1 MB/s)
+debconf: delaying package configuration, since apt-utils is not installed
+(Reading database ... 20567 files and directories currently installed.)
+Preparing to unpack .../kubeadm_1.33.0-1.1_amd64.deb ...
+Unpacking kubeadm (1.33.0-1.1) over (1.32.0-1.1) ...
+Setting up kubeadm (1.33.0-1.1) ...
+
+
+
+controlplane ~ ➜  kubeadm upgrade plan v1.33.0
+[preflight] Running pre-flight checks.
+[upgrade/config] Reading configuration from the "kubeadm-config" ConfigMap in namespace "kube-system"...
+[upgrade/config] Use 'kubeadm init phase upload-config --config your-config-file' to re-upload it.
+[upgrade] Running cluster health checks
+[upgrade] Fetching available versions to upgrade to
+[upgrade/versions] Cluster version: 1.32.0
+[upgrade/versions] kubeadm version: v1.33.0
+[upgrade/versions] Target version: v1.33.0
+[upgrade/versions] Latest version in the v1.32 series: v1.33.0
+
+Components that must be upgraded manually after you have upgraded the control plane with 'kubeadm upgrade apply':
+COMPONENT   NODE           CURRENT   TARGET
+kubelet     controlplane   v1.32.0   v1.33.0
+kubelet     node01         v1.32.0   v1.33.0
+
+Upgrade to the latest version in the v1.32 series:
+
+COMPONENT                 NODE           CURRENT    TARGET
+kube-apiserver            controlplane   v1.32.0    v1.33.0
+kube-controller-manager   controlplane   v1.32.0    v1.33.0
+kube-scheduler            controlplane   v1.32.0    v1.33.0
+kube-proxy                               1.32.0     v1.33.0
+CoreDNS                                  v1.10.1    v1.12.0
+etcd                      controlplane   3.5.16-0   3.5.21-0
+
+You can now apply the upgrade by executing the following command:
+
+        kubeadm upgrade apply v1.33.0
+
+_____________________________________________________________________
+
+
+The table below shows the current state of component configs as understood by this version of kubeadm.
+Configs that have a "yes" mark in the "MANUAL UPGRADE REQUIRED" column require manual config upgrade or
+resetting to kubeadm defaults before a successful upgrade can be performed. The version to manually
+upgrade to is denoted in the "PREFERRED VERSION" column.
+
+API GROUP                 CURRENT VERSION   PREFERRED VERSION   MANUAL UPGRADE REQUIRED
+kubeproxy.config.k8s.io   v1alpha1          v1alpha1            no
+kubelet.config.k8s.io     v1beta1           v1beta1             no
+_____________________________________________________________________
+
+
+controlplane ~ ➜  kubeadm upgrade apply v1.33.0
+[upgrade] Reading configuration from the "kubeadm-config" ConfigMap in namespace "kube-system"...
+[upgrade] Use 'kubeadm init phase upload-config --config your-config-file' to re-upload it.
+[upgrade/preflight] Running preflight checks
+        [WARNING SystemVerification]: cgroups v1 support is in maintenance mode, please migrate to cgroups v2
+[upgrade] Running cluster health checks
+[upgrade/preflight] You have chosen to upgrade the cluster version to "v1.33.0"
+[upgrade/versions] Cluster version: v1.32.0
+[upgrade/versions] kubeadm version: v1.33.0
+[upgrade] Are you sure you want to proceed? [y/N]: y
+[upgrade/preflight] Pulling images required for setting up a Kubernetes cluster
+[upgrade/preflight] This might take a minute or two, depending on the speed of your internet connection
+[upgrade/preflight] You can also perform this action beforehand using 'kubeadm config images pull'
+W0919 04:40:42.589148   40487 checks.go:846] detected that the sandbox image "registry.k8s.io/pause:3.6" of the container runtime is inconsistent with that used by kubeadm.It is recommended to use "registry.k8s.io/pause:3.10" as the CRI sandbox image.
+[upgrade/control-plane] Upgrading your static Pod-hosted control plane to version "v1.33.0" (timeout: 5m0s)...
+[upgrade/staticpods] Writing new Static Pod manifests to "/etc/kubernetes/tmp/kubeadm-upgraded-manifests4263277867"
+[upgrade/staticpods] Preparing for "etcd" upgrade
+[upgrade/staticpods] Renewing etcd-server certificate
+[upgrade/staticpods] Renewing etcd-peer certificate
+[upgrade/staticpods] Renewing etcd-healthcheck-client certificate
+[upgrade/staticpods] Moving new manifest to "/etc/kubernetes/manifests/etcd.yaml" and backing up old manifest to "/etc/kubernetes/tmp/kubeadm-backup-manifests-2025-09-19-04-40-53/etcd.yaml"
+[upgrade/staticpods] Waiting for the kubelet to restart the component
+[upgrade/staticpods] This can take up to 5m0s
+
+
+
+
+[apiclient] Found 1 Pods for label selector component=etcd
+[upgrade/staticpods] Component "etcd" upgraded successfully!
+[upgrade/etcd] Waiting for etcd to become available
+[upgrade/staticpods] Preparing for "kube-apiserver" upgrade
+[upgrade/staticpods] Renewing apiserver certificate
+[upgrade/staticpods] Renewing apiserver-kubelet-client certificate
+[upgrade/staticpods] Renewing front-proxy-client certificate
+[upgrade/staticpods] Renewing apiserver-etcd-client certificate
+[upgrade/staticpods] Moving new manifest to "/etc/kubernetes/manifests/kube-apiserver.yaml" and backing up old manifest to "/etc/kubernetes/tmp/kubeadm-backup-manifests-2025-09-19-04-40-53/kube-apiserver.yaml"
+[upgrade/staticpods] Waiting for the kubelet to restart the component
+[upgrade/staticpods] This can take up to 5m0s
+
+
+
+[apiclient] Found 1 Pods for label selector component=kube-apiserver
+[upgrade/staticpods] Component "kube-apiserver" upgraded successfully!
+[upgrade/staticpods] Preparing for "kube-controller-manager" upgrade
+[upgrade/staticpods] Renewing controller-manager.conf certificate
+[upgrade/staticpods] Moving new manifest to "/etc/kubernetes/manifests/kube-controller-manager.yaml" and backing up old manifest to "/etc/kubernetes/tmp/kubeadm-backup-manifests-2025-09-19-04-40-53/kube-controller-manager.yaml"
+[upgrade/staticpods] Waiting for the kubelet to restart the component
+[upgrade/staticpods] This can take up to 5m0s
+
+
+[apiclient] Found 1 Pods for label selector component=kube-controller-manager
+[upgrade/staticpods] Component "kube-controller-manager" upgraded successfully!
+[upgrade/staticpods] Preparing for "kube-scheduler" upgrade
+[upgrade/staticpods] Renewing scheduler.conf certificate
+[upgrade/staticpods] Moving new manifest to "/etc/kubernetes/manifests/kube-scheduler.yaml" and backing up old manifest to "/etc/kubernetes/tmp/kubeadm-backup-manifests-2025-09-19-04-40-53/kube-scheduler.yaml"
+[upgrade/staticpods] Waiting for the kubelet to restart the component
+[upgrade/staticpods] This can take up to 5m0s
+
+
+
+
+[apiclient] Found 1 Pods for label selector component=kube-scheduler
+[upgrade/staticpods] Component "kube-scheduler" upgraded successfully!
+[upgrade/control-plane] The control plane instance for this node was successfully upgraded!
+[upload-config] Storing the configuration used in ConfigMap "kubeadm-config" in the "kube-system" Namespace
+[kubelet] Creating a ConfigMap "kubelet-config" in namespace kube-system with the configuration for the kubelets in the cluster
+[upgrade/kubeconfig] The kubeconfig files for this node were successfully upgraded!
+W0919 04:43:25.664466   40487 postupgrade.go:117] Using temporary directory /etc/kubernetes/tmp/kubeadm-kubelet-config1738728422 for kubelet config. To override it set the environment variable KUBEADM_UPGRADE_DRYRUN_DIR
+[upgrade] Backing up kubelet config file to /etc/kubernetes/tmp/kubeadm-kubelet-config1738728422/config.yaml
+[kubelet-start] Writing kubelet configuration to file "/var/lib/kubelet/config.yaml"
+[upgrade/kubelet-config] The kubelet configuration for this node was successfully upgraded!
+[upgrade/bootstrap-token] Configuring bootstrap token and cluster-info RBAC rules
+[bootstrap-token] Configured RBAC rules to allow Node Bootstrap tokens to get nodes
+[bootstrap-token] Configured RBAC rules to allow Node Bootstrap tokens to post CSRs in order for nodes to get long term certificate credentials
+[bootstrap-token] Configured RBAC rules to allow the csrapprover controller automatically approve CSRs from a Node Bootstrap Token
+[bootstrap-token] Configured RBAC rules to allow certificate rotation for all node client certificates in the cluster
+[addons] Applied essential addon: CoreDNS
+[addons] Applied essential addon: kube-proxy
+
+[upgrade] SUCCESS! A control plane node of your cluster was upgraded to "v1.33.0".
+
+[upgrade] Now please proceed with upgrading the rest of the nodes by following the right order.
+
+
+controlplane ~ ➜  apt-get install kubelet=1.33.0-1.1
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+The following packages will be upgraded:
+  kubelet
+1 upgraded, 0 newly installed, 0 to remove and 81 not upgraded.
+Need to get 15.9 MB of archives.
+After this operation, 4,293 kB of additional disk space will be used.
+Get:1 https://prod-cdn.packages.k8s.io/repositories/isv:/kubernetes:/core:/stable:/v1.33/deb  kubelet 1.33.0-1.1 [15.9 MB]
+Fetched 15.9 MB in 0s (39.6 MB/s)
+debconf: delaying package configuration, since apt-utils is not installed
+(Reading database ... 20567 files and directories currently installed.)
+Preparing to unpack .../kubelet_1.33.0-1.1_amd64.deb ...
+Unpacking kubelet (1.33.0-1.1) over (1.32.0-1.1) ...
+Setting up kubelet (1.33.0-1.1) ...
+
+
+
+controlplane ~ ➜  systemctl daemon-reload
+
+controlplane ~ ➜  systemctl restart kubelet
+
+
+
+
+//////////////
+
+To seamlessly transition from Kubernetes v1.32 to v1.33 and gain access to the packages specific to the desired Kubernetes minor version, follow these essential steps during the upgrade process. This ensures that your environment is appropriately configured and aligned with the features and improvements introduced in Kubernetes v1.33.
+
+On the controlplane node:
+
+Use any text editor you prefer to open the file that defines the Kubernetes apt repository.
+
+vim /etc/apt/sources.list.d/kubernetes.list
+Update the version in the URL to the next available minor release, i.e v1.33.
+
+deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.33/deb/ /
+After making changes, save the file and exit from your text editor. Proceed with the next instruction.
+
+apt update
+
+apt-cache madison kubeadm
+Based on the version information displayed by apt-cache madison, it indicates that for Kubernetes version 1.33.0, the available package version is 1.33.0-1.1. Therefore, to install kubeadm for Kubernetes v1.33.0, use the following command:
+
+apt-get install kubeadm=1.33.0-1.1
+Run the following command to upgrade the Kubernetes cluster.
+
+kubeadm upgrade plan v1.33.0
+
+kubeadm upgrade apply v1.33.0
+Note that the above steps can take a few minutes to complete.
+
+Now, upgrade the Kubelet version. Also, mark the node (in this case, the "controlplane" node) as schedulable.
+
+apt-get install kubelet=1.33.0-1.1
+Run the following commands to refresh the systemd configuration and apply changes to the Kubelet service:
+
+systemctl daemon-reload
+
+systemctl restart kubelet
+
+//////////////
+
+Controlplane Node Upgraded to v1.33.0
+
+Controlplane Kubelet Upgraded to v1.33.0
+
+
+Q:
+    Mark the controlplane node as "Schedulable" again
+
+A:
+    controlplane ~ ➜  kubectl uncordon controlplane 
+node/controlplane uncordoned
+
+
+controlplane ~ ➜  k get nodes
+NAME           STATUS   ROLES           AGE   VERSION
+controlplane   Ready    control-plane   94m   v1.33.0
+node01         Ready    <none>          93m   v1.32.0
+
+
+Q:
+ Next is the worker node. Drain the worker node of the workloads and mark it UnSchedulable
+
+A:
+
+    controlplane ~ ➜  k drain node01
+node/node01 cordoned
+error: unable to drain node "node01" due to error: cannot delete DaemonSet-managed Pods (use --ignore-daemonsets to ignore): kube-flannel/kube-flannel-ds-xqdhr, kube-system/kube-proxy-jqnxt, continuing command...
+There are pending nodes to be drained:
+ node01
+cannot delete DaemonSet-managed Pods (use --ignore-daemonsets to ignore): kube-flannel/kube-flannel-ds-xqdhr, kube-system/kube-proxy-jqnxt
+
+controlplane ~ ✖ k get nodes
+NAME           STATUS                     ROLES           AGE   VERSION
+controlplane   Ready                      control-plane   95m   v1.33.0
+node01         Ready,SchedulingDisabled   <none>          95m   v1.32.0
+
+Worker node: Unschedulable
+
+Q:
+    Upgrade the worker node to the exact version v1.33.0
+
+Make sure that the correct version of kubeadm is installed and then proceed to upgrade the node01 node. Once this is done, upgrade the kubelet on the node.
+
+A:
+
+controlplane ~ ✖ ssh node01
+Welcome to Ubuntu 22.04.4 LTS (GNU/Linux 5.15.0-1083-gcp x86_64)
+
+ * Documentation:  https://help.ubuntu.com
+ * Management:     https://landscape.canonical.com
+ * Support:        https://ubuntu.com/pro
+
+This system has been minimized by removing packages and content that are
+not required on a system that users do not log into.
+
+To restore this content, you can run the 'unminimize' command.
+
+A:
+node01 ~ ➜  cat /etc/apt/sources.list.d/kubernetes.list 
+deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.32/deb/ /
+
+Make it v1.33
+
+node01 ~ ➜  cat /etc/apt/sources.list.d/kubernetes.list 
+deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.33/deb/ /
+
+apt update
+
+apt-cache madison kubeadm
+
+Based on the version information displayed by apt-cache madison, it indicates that for Kubernetes version 1.33.0, the available package version is 1.33.0-1.1. Therefore, to install kubeadm for Kubernetes v1.33.0, use the following command:
+
+apt-get install kubeadm=1.33.0-1.1
+
+# Upgrade the node 
+kubeadm upgrade node
+
+Now, upgrade the Kubelet version.
+
+apt-get install kubelet=1.33.0-1.1
+
+Run the following commands to refresh the systemd configuration and apply changes to the Kubelet service:
+
+systemctl daemon-reload
+
+systemctl restart kubelet
+
+Q:
+    Remove the restriction and mark the worker node as schedulable again.
+A:
+    controlplane ~ ➜  k get nodes
+NAME           STATUS                     ROLES           AGE    VERSION
+controlplane   Ready                      control-plane   103m   v1.33.0
+node01         Ready,SchedulingDisabled   <none>          103m   v1.33.0
+
+controlplane ~ ➜  k uncordon node01
+node/node01 uncordoned
+
+controlplane ~ ➜  k get nodes
+NAME           STATUS   ROLES           AGE    VERSION
+controlplane   Ready    control-plane   104m   v1.33.0
+node01         Ready    <none>          103m   v1.33.0
+
+Now, worker node is upgraded:
+Worker Node: Schedulable
+
+//////
+
+k get nodes 
+k descibe node | grep Taints
+k get deploy 
+
+k get pods -o wide  --> shows with node name
+
+Upgrade one node at a time while moving the workloads to the other
+
+kubeadm upgrade plan --> this show latest version available 
+
+To upgrade master node first.
+Drain the master node of workloads and mark it Unscheduleable 
+
+k drain controlplane 
+k drain controlplane --ignore-daemonsets
+    After above command executed, all the pods will be evicted 
+k get nodes 
+    now controlplane  status will show SchedulingDisabled
+
+
+k pods -o wide 
+all pods will move to node01 node now
+
+kudeadm is first updated on master node then worker nodess
+kubeadm upgrade plan
+kubeadm upgrade apply <version>
+
+kubectl is now upgraded  using apt-get 
+systemctl used to restart after upgrade 
+
+k get nodes 
+still shows SchedulingDisabled
+
+k uncordon controlplane 
+    to make it schedule state
+k get nodes 
+
+same steps goes with node01
+
+

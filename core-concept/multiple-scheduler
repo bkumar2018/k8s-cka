@@ -1,0 +1,86 @@
+
+kubectl get pods -A 
+
+kubectl describe pod kube-scheduler-controlplane -n kube-system
+
+kubectl get sa my-scheduler -n kube-system
+
+kubectl create configMap my-scheduler-config --from-file=<pathoffile> -n kube-system
+
+kubectl get confiemap  my-scheduler-config -n kube-system
+
+kubectl get pods -A 
+
+kubectl describe pod kube-scheduler-controlplan -n kube-system | grep image
+
+kubectl create -f my-scheduler.yaml 
+kubectl get pods -n kube-system
+
+/////////// nginx-pod.yaml///////
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+spec:
+  schedulerName: my-scheduler
+  containers:
+  - image: nginx
+    name: nginx
+  
+///////////
+kubectl create -f nginx-pod.yaml
+kubectl get pods
+
+/////////my-scheduler2-config.yaml///////
+
+apiVersion: kubescheduler.config.k8s.io/v1
+kind: kubeSchedulerConfiguration
+profiles:
+- schedulerName: my-scheduler-2
+
+
+///////////my-scheduler-config.yaml///////
+
+apiVersion: kubescheduler.config.k8s.io/v1
+kind: kubeSchedulerConfiguration
+profiles:
+- schedulerName: my-scheduler
+
+
+////////scheduler-config.yaml/////////
+
+apiVersion: kubescheduler.config.k8s.io/v1
+kind: kubeSchedulerConfiguration
+profiles:
+- schedulerName: default-scheduler
+
+/////////
+
+kubectl create ns webhook-daemo
+kubectl get ns 
+
+kubectl -n webhook-demo create secret tls webhook-server-tls \
+> --cert "/root/keys/webhook-server-tls.crt" \
+> --key "/root/keys/webhook-server-tls.key"
+
+controlplane ~ ➜  kubectl -n  webhook-demo create secret tls webhook-server-tls \
+> --cert=/root/keys/webhook-server-tls.crt \
+> --key=/root/keys/webhook-server-tls.key
+secret/webhook-server-tls created
+
+
+kubectl get secrets 
+
+kubectl apply -f webhook-deployment.yaml 
+
+kubectl apply -f webhook-service.yaml 
+
+kubectl apply -f webhook-configuration.yaml 
+
+kubectl apply -f pod-with-defaults.yaml 
+
+kubectl get pod pod-with-defaults -o yaml | grep securityContext 
+
+kubectl apply -f pod-with-override.yaml
+
+kubectl apply -f pod-with-conflict.yaml 

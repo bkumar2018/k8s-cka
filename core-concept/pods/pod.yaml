@@ -1,0 +1,44 @@
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+  labels:
+    app: nginx
+    tier: frontend
+
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+  # - name: busybox
+  #   image: busybox
+................
+
+
+container are encapsulated in k8s object call pod 
+and pod is inside nodes 
+and nodes are created as part of k8s cluster 
+
+pod is smallest objcet can be created in k8s.
+
+
+pod usally have one-2-one relation with container running an application
+
+if you want to scale up 
+
+to scale up you create new pod and 
+
+to scale down you delete existing pod 
+
+You Do NOT add additional containers to an existing pod  to scale your application
+
+Above is resticted it does not mean it can not have it.
+
+...............
+
+Multi-Container Pods 
+
+We can have multi container in a pod, but NOT of same kind container, its should of different container type, 
+
+

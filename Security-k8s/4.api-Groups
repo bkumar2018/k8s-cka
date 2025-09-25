@@ -1,0 +1,36 @@
+
+K8s api groups
+
+/api --> core 
+/apis --> named 
+
+
+
+        Core 
+        /api 
+        /v1 
+namespaces      pods        rc 
+events          endpoints    nodes 
+bindings        PV          PVC 
+configmaps     secrets         services         
+
+
+
+
+
+        NAmed 
+        /apis
+
+/apps         /extensions           /networking.k8s.io.         /storage.k8s.io.        /authentication.k8s.io              /certificates.k8s.io 
+/v1                                         /v1                                                                                 /v1
+                                            /networkpolicies                                                                       /certificatesigningrequests
+- /deployments
+- /replicasets
+- /statefulsets
+    - list
+    - get
+    - create 
+    - delete 
+    - updated
+    - watch 
+

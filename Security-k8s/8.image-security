@@ -1,0 +1,136 @@
+
+Image:
+..........
+
+image: nginx 
+
+docker image name convention
+
+image: library/nginx 
+
+image: <user/account>/<Image repo>
+
+image: <Regsitry>>/<user/account>/<Image repo>
+image: docker.io/<user/account>/<Image repo>
+
+Private Repository
+--------------
+docker login private-registry.io 
+docker run private-registry.io/apps/internal-app 
+
+kuberctl create secret docker-registry regcred \
+    --docker-server= private-registry.io \
+    --docker-username= registry-user \
+    --docker-password= registry-password \
+    --docker-email= registry-user@prg.com 
+
+..........
+
+apiVersion: v1
+kind: Pod
+metadata: 
+    name: nginx-pod 
+spec:
+    containers:
+    -   name: nginx
+        image: private-registry.io/apps/internal-app
+    imagePullSecrets:
+    -   name: regcred
+
+..........
+
+
+
+Quesitons:
+
+Q1:
+
+
+A1:
+root@controlplane ~ ➜  k create secret -h
+Create a secret with specified type.
+
+ A docker-registry type secret is for accessing a container registry.
+
+ A generic type secret indicate an Opaque secret type.
+
+ A tls type secret holds TLS certificate and its associated key.
+
+Available Commands:
+  docker-registry   Create a secret for use with a Docker registry
+  generic           Create a secret from a local file, directory, or literal
+value
+  tls               Create a TLS secret
+
+Usage:
+  kubectl create secret (docker-registry | generic | tls) [options]
+
+
+Q2:
+We have an application running on our cluster. Let us explore it first. What image is the application using?
+
+A:
+image: nginx:alpine
+
+root@controlplane ~ ➜  k get deploy
+NAME   READY   UP-TO-DATE   AVAILABLE   AGE
+web    2/2     2            2           3m29s
+
+root@controlplane ~ ➜  k get deploy web -o yaml | grep image:
+      - image: nginx:alpine
+
+Q:
+We decided to use a modified version of the application from an internal private registry. Update the image of the deployment to use a new image from myprivateregistry.com:5000
+
+
+The registry is located at myprivateregistry.com:5000. Don't worry about the credentials for now. We will configure them in the upcoming steps.
+
+A:
+root@controlplane ~ ➜  k edit deploy web 
+deployment.apps/web edited
+
+Use the kubectl edit deployment command to edit the image name to myprivateregistry.com:5000/nginx:alpine.
+
+
+Q:
+Are the new PODs created with the new images successfully running?
+A:
+No
+
+root@controlplane ~ ➜  k get pods
+NAME                   READY   STATUS         RESTARTS   AGE
+web-5bd64f6ccb-557bz   1/1     Running        0          7m37s
+web-5bd64f6ccb-m6vzl   1/1     Running        0          7m37s
+web-7968dfbf7f-qmr5r   0/1     ErrImagePull   0          30s
+
+Q:
+Create a secret object with the credentials required to access the registry.
+
+
+Name: private-reg-cred
+Username: dock_user
+Password: dock_password
+Server: myprivateregistry.com:5000
+Email: dock_user@myprivateregistry.com
+
+A:
+
+usage:
+  kubectl create secret docker-registry NAME --docker-username=user
+--docker-password=password --docker-email=email [--docker-server=string]
+[--from-file=[key=]source] [--dry-run=server|client|none] [options]
+
+Use "kubectl options" for a list of global command-line options (applies to all
+commands).
+
+
+root@controlplane ~ ➜  k create secret docker-registry private-reg-cred --docker-username=dock_user --docker-password=dock_password --docker-server=myprivateregistry.com:5000 --docker-email=dock_user@myprivateregistry.com 
+secret/private-reg-cred created
+
+
+Q:
+Configure the deployment to use credentials from the new secret to pull images from the private registry
+
+A:
+
+

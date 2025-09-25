@@ -1,0 +1,47 @@
+
+Custom Resource Definition  - CRD 
+
+...............flightticket.yml........
+
+apiVersion: flights.com/v1
+kind: FlightTicket
+metadata:
+  name: my-flight-ticket 
+
+spec:
+  from: Mumbai
+  to: London
+  number: 2
+
+...............
+
+Custom Resource ---- >ETCD  ---> Custom Controller ...Monitor, Change 
+
+
+kubectl create -f flightticket.yml 
+
+kubectl get flightticket
+
+
+For custom resources we need to have custom controller 
+
+
+
+
+Custom Controller :
+-------------------
+    uses Go language 
+
+
+
+Operator Framework:
+-------------------
+
+Customer resource definition (CRD) and Custom Controller (CC)
+
+These two CRD and CC can be deployed as single entity using Operator Framework
+
+k create -f flight-operator.yaml 
+
+
+OperatorHub.io 

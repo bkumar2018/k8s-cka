@@ -1,0 +1,279 @@
+
+
+Multi conatiner Design Patterns
+
+1. Co-located
+
+2. Regular Init Containers 
+
+3. Sidecar Containers
+
+1. Co-located
+----------------
+This is below configuration of co-located containers in the Pod
+Usecase when two containers are dependent on one another.
+....................
+apiVersion: v1
+kind: Pod
+metadata:
+  name: simple-webapp
+  labels:
+    name: simple-webapp
+spec:
+  containers:
+    - name: web-app
+      image: web-app
+      ports:
+        - containerPort: 8080
+    - name: main-app
+      image: main-app
+    
+....................
+
+
+2. Regular Init Containers
+
+When pod start before an main application starts and end its job and then main application starts
+
+....................
+apiVersion: v1
+kind: Pod
+metadata:
+  name: simple-webapp
+  labels:
+    name: simple-webapp
+spec:
+  containers:
+    - name: web-app
+      image: web-app
+      ports:
+        - containerPort: 8080
+  initContainers:  
+    - name: db-checker
+      image: busybox
+      command: 'wait-for-db-to-start.sh'
+    - name: api-checker
+      image: busybox
+      command: 'wait-for-another-api.sh'
+    
+....................
+
+
+This contianer db-checker by deafult start and ends its run in this case, once wait for DB 
+for db to start script ends, then the main container web-app starts.
+
+Main application start when both initContainers start and ends 
+
+What is an Init Container?
+An init container is a special container that runs before the main containers in a Pod. Each init container must succeed (exit 0) before the next one is started. Once all init containers complete, the regular containers start simultaneously.
+
+They are configured similarly to other containers but are placed in the initContainers section of the Pod spec
+
+3. Sidecar Containers
+
+📌 Helper container extends the main app’s functionality
+Here this pod start before the main app start and end after the main app ends
+
+....................
+apiVersion: v1
+kind: Pod
+metadata:
+  name: simple-webapp
+  labels:
+    name: simple-webapp
+spec:
+  containers:
+    - name: web-app
+      image: web-app
+      ports:
+        - containerPort: 8080
+  initContainers:  
+    - name: log-shipper
+      image: busybox
+      command: 'setup-log-shipper.sh'
+      restartPolicy: Always
+    
+....................
+
+If an init container is created with its restartPolicy set to Always, it will start and remain running during the entire life of the Pod. This can be helpful for running supporting services separated from the main application containers.
+
+Use case:
+
+
+Pod - ElasticSearch. - Kibana --> User 
+
+
+APP pod with app container --> logs --> SideCar container --> ElasticSearch --> Kibana  --> User
+
+
+////////
+Q:
+Identify the number of containers in the red pod ?
+A:
+3 
+
+controlplane ~ ➜  k get pods
+NAME        READY   STATUS              RESTARTS   AGE
+app         0/1     ContainerCreating   0          26s
+fluent-ui   1/1     Running             0          26s
+red         0/3     ContainerCreating   0          12s
+
+
+.............
+controlplane ~ ➜  cat yello.yaml 
+apiVersion: v1
+kind: Pod
+metadata:
+  name: yellow
+
+spec:
+  containers:
+    - name: lemon
+      image: busybox
+      command:
+        - sleep
+        - "4500"
+    - name: gold
+      image: redis
+.............
+
+
+This is using the run commnads:
+$ k run yellow --image=busybox --dry-run=client -o yaml > yellow-1.yaml 
+
+
+
+controlplane ~ ✖ k replace --force -f yello.yaml 
+pod "yellow" deleted
+pod/yellow replaced
+
+controlplane ~ ➜  k get pods
+NAME        READY   STATUS    RESTARTS   AGE
+app         1/1     Running   0          6m14s
+blue        2/2     Running   0          5m31s
+fluent-ui   1/1     Running   0          6m14s
+red         3/3     Running   0          6m
+yellow      2/2     Running   0          6s
+
+
+controlplane ~ ✖ k get pods -n elastic-stack
+NAME             READY   STATUS    RESTARTS   AGE
+app              1/1     Running   0          9m54s
+elastic-search   1/1     Running   0          9m53s
+kibana           1/1     Running   0          9m53s
+
+
+get logs from kibana pod from namespace elastic-stack
+
+$kubectl -n elastic-stack logs kibana
+
+$k describe pod app -n elastic-stack
+
+
+Check the logs from the container as below:
+
+$ k -n elastic-stack exec -it app -- cat /log/app.log 
+
+$ k replace -n elastic-stack  --force -f /tmp/kubectl-edit-3874515465.yaml 
+
+Add the below sidecar container in the app pod and save it and run above replace command :
+
+  initContainers:
+  - name: sidecar
+    image: kodekloud/filebeat-configured
+    restartPolicy: Always
+    volumeMounts:
+      - name: log-volume
+        mountPath: /var/log/event-simulator
+
+/////////////
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: "2025-09-16T08:12:33Z"
+  generation: 1
+  labels:
+    name: app
+  name: app
+  namespace: elastic-stack
+  resourceVersion: "727"
+  uid: 3a27630e-4cbb-42f1-9b46-a3dc8d1b2d2f
+spec:
+  initContainers:
+  - name: sidecar
+    image: kodekloud/filebeat-configured
+    restartPolicy: Always
+    volumeMounts:
+      - name: log-volume
+        mountPath: /var/log/event-simulator
+
+  containers:
+  - image: kodekloud/event-simulator
+    imagePullPolicy: Always
+    name: app
+    resources: {}
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /log
+      name: log-volume
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-sd6fb
+      readOnly: true
+  dnsPolicy: ClusterFirst
+  enableServiceLinks: true
+  nodeName: controlplane
+  preemptionPolicy: PreemptLowerPriority
+  priority: 0
+  restartPolicy: Always
+  schedulerName: default-scheduler
+  securityContext: {}
+  serviceAccount: default
+  serviceAccountName: default
+  terminationGracePeriodSeconds: 30
+  tolerations:
+  - effect: NoExecute
+    key: node.kubernetes.io/not-ready
+    operator: Exists
+    tolerationSeconds: 300
+  - effect: NoExecute
+    key: node.kubernetes.io/unreachable
+    operator: Exists
+    tolerationSeconds: 300
+  volumes:
+  - hostPath:
+      path: /var/log/webapp
+      type: DirectoryOrCreate
+    name: log-volume
+  - name: kube-api-access-sd6fb
+    projected:
+      defaultMode: 420
+      sources:
+      - serviceAccountToken:
+          expirationSeconds: 3607
+          path: token
+      - configMap:
+          items:
+          - key: ca.crt
+            path: ca.crt
+          name: kube-root-ca.crt
+      - downwardAPI:
+          items:
+          - fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+            path: namespace
+///////////////
+
+k replace --force -f /tmp/kubectl-edit-2294220293.yaml
+
+
+kubectl get pod orange -o yaml > orange.yaml
+
+k describe pod  --> this will describe all the pods
+
+k logs orange -c init-myservice. -> check logs of conatiner init-myservice from pod orange
+
+
+
+
